@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sari AI — Fashion Model Generator
 
-## Getting Started
+Turn a single photo of an Indian sari (or any garment) into an **advertisement-ready
+AI fashion shoot**. Upload a sari, generate a realistic model wearing it, swap the
+background, and export in true **4K** — in under a minute.
 
-First, run the development server:
+Built for Indian fashion brands, e-commerce sellers, Instagram boutiques and ad agencies.
 
+---
+
+## ✨ Features
+- **AI model generation** — a realistic fashion model wearing your exact sari, with
+  garment fidelity (color, weave, zari border, pallu) preserved.
+- **Background studio** — 8 curated presets (heritage palace, garden, beach sunset,
+  Mughal archway, festive rangoli…), free-text custom scenes, or a solid color.
+- **Any resolution export** — social square, IG portrait, Full-HD banner, 4K print,
+  or a custom width × height — resized server-side with `sharp`.
+- **Before/after comparison slider**, generation history, daily usage tracking.
+- **Premium editorial UI** — Playfair Display + Inter, navy/champagne/gold palette,
+  full dark mode, mobile-first and accessible.
+
+## 🧱 Tech stack
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 16 (App Router) + React 19 + TypeScript |
+| Styling | Tailwind CSS v4 (`@theme` tokens, class-based dark mode) |
+| Auth / DB / Storage | Supabase (`@supabase/ssr`) |
+| AI image engine | OpenRouter Unified Image API — `google/gemini-3-pro-image-preview` (Nano Banana Pro), with `gemini-3.1-flash-image-preview` fallback |
+| Image resize | `sharp` |
+| Icons / utils | lucide-react, class-variance-authority, clsx + tailwind-merge |
+
+## 🏗️ How it works
+```
+Sari photo ──▶ Supabase Storage (sari-uploads)
+            └─▶ /api/generate ──▶ Nano Banana Pro ──▶ generated-outputs ──▶ model image
+                                /api/background ──▶ background-swapped image
+                                /api/download  ──▶ sharp resize ──▶ PNG download
+```
+All AI calls are server-only; generated images are persisted to Supabase Storage
+(never relying on transient model URLs).
+
+## 🚀 Getting started
+See **[SETUP.md](SETUP.md)** for the full guide. In short:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.local.example .env.local      # add Supabase + OpenRouter keys
+# run supabase/migrations/0001_init.sql in the Supabase SQL editor
+npm run dev                            # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📁 Project layout
+```
+app/
+  (auth)/        login, signup, auth server actions
+  (protected)/   dashboard, generate (4-step wizard), generate/[id]
+  api/           generate, background, download
+  page.tsx       landing
+components/       ui/ primitives + feature components + app shell
+lib/              supabase clients, openrouter client, auth, constants, utils
+types/            shared type contract
+supabase/         SQL migration (schema, RLS, storage)
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📚 Docs
+- **[CLAUDE.md](CLAUDE.md)** — architecture, conventions, design system, API contract
+- **[SETUP.md](SETUP.md)** — environment, database, run & troubleshooting
+- **[TODO.md](TODO.md)** — build status & roadmap
+- **[PRD.md](PRD.md)** — original product spec
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+_Output quality depends on a clear, well-lit, front-facing sari photo. The model
+renders a full-body editorial shot at 4K; downscale for web or keep 4K for print._

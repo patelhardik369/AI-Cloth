@@ -1,0 +1,142 @@
+import Image from "next/image";
+import Link from "next/link";
+import { Download, Eye, ImageOff, Maximize2, Palette } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
+import { buttonVariants } from "@/components/ui/button";
+import { PRESET_BACKGROUNDS } from "@/lib/constants";
+import { cn, formatRelativeTime } from "@/lib/utils";
+import type { Generation, GenerationStatus } from "@/types";
+
+const STATUS_META: Record<
+  GenerationStatus,
+  { label: string; variant: "success" | "warning" | "default" | "danger" }
+> = {
+  completed: { label: "Completed", variant: "success" },
+  generating: { label: "Generating", variant: "warning" },
+  pending: { label: "Pending", variant: "default" },
+  failed: { label: "Failed", variant: "danger" },
+};
+
+/** Resolve a friendly, human-readable background label for the meta row. */
+function backgroundLabel(g: Generation): string | null {
+  if (!g.background_type) return null;
+  if (g.background_type === "preset") {
+    const preset = PRESET_BACKGROUNDS.find(
+      (p) => p.id === g.background_value || p.name === g.background_value,
+    );
+    return preset?.name ?? g.background_value ?? "Preset scene";
+  }
+  if (g.background_type === "solid") {
+    return g.background_value ? `Solid ${g.background_value}` : "Solid color";
+  }
+  return g.background_value ?? "Custom scene";
+}
+
+/** A single shoot in the dashboard grid. Server component. */
+export function GenerationCard({ generation }: { generation: Generation }) {
+  const imageUrl = generation.final_image_url ?? generation.generated_image_url;
+  const status = STATUS_META[generation.status];
+  const background = backgroundLabel(generation);
+  const resolution =
+    generation.resolution_width && generation.resolution_height
+      ? `${generation.resolution_width}×${generation.resolution_height}`
+      : null;
+
+  return (
+    <Card className="group flex flex-col overflow-hidden animate-fade-up transition-shadow duration-300 hover:shadow-lift">
+      {/* Image — 4:5 portrait */}
+      <div className="relative aspect-[4/5] overflow-hidden rounded-t-xl bg-surface-2">
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt="AI fashion shoot generated from your sari"
+            fill
+            sizes="(min-width: 1280px) 23vw, (min-width: 1024px) 31vw, (min-width: 640px) 47vw, 92vw"
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted">
+            <ImageOff className="size-8" aria-hidden />
+            <span className="text-xs font-medium">
+              {generation.status === "failed" ? "Failed" : "Processing…"}
+            </span>
+          </div>
+        )}
+
+        {/* Status badge */}
+        <div className="absolute left-3 top-3">
+          <Badge variant={status.variant} className="shadow-soft backdrop-blur-sm">
+            {generation.status === "generating" && <Spinner className="size-3 text-current" />}
+            {status.label}
+          </Badge>
+        </div>
+
+        {/* Source sari thumbnail */}
+        {generation.sari_image_url && (
+          <div
+            className="absolute right-3 top-3 size-12 overflow-hidden rounded-lg shadow-soft ring-2 ring-background/80"
+            title="Source sari"
+          >
+            <Image
+              src={generation.sari_image_url}
+              alt="Source sari"
+              fill
+              sizes="48px"
+              className="object-cover"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      <CardContent className="flex flex-1 flex-col gap-2 p-4">
+        <p className="text-sm font-medium text-foreground">
+          {formatRelativeTime(generation.created_at)}
+        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+          {background && (
+            <span className="inline-flex min-w-0 items-center gap-1" title={background}>
+              <Palette className="size-3.5 shrink-0" aria-hidden />
+              <span className="truncate">{background}</span>
+            </span>
+          )}
+          {resolution && (
+            <span className="inline-flex items-center gap-1">
+              <Maximize2 className="size-3.5 shrink-0" aria-hidden />
+              <span className="tabular-nums">{resolution}</span>
+            </span>
+          )}
+          {!background && !resolution && (
+            <span className="text-muted-foreground">No background applied yet</span>
+          )}
+        </div>
+      </CardContent>
+
+      {/* Footer */}
+      <CardFooter className="gap-2 p-4 pt-0">
+        <Link
+          href={`/generate/${generation.id}`}
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1 gap-1.5")}
+        >
+          <Eye className="size-4" aria-hidden />
+          View
+        </Link>
+        {imageUrl && (
+          <a
+            href={imageUrl}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-1.5")}
+            aria-label="Download image"
+          >
+            <Download className="size-4" aria-hidden />
+            Download
+          </a>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}

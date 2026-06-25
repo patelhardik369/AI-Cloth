@@ -1,26 +1,238 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: toggled by adding `dark` to <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ */
+/*  Semantic theme variables — warm gallery palette                   */
+/*  Light: bone paper · espresso ink · single claret accent           */
+/* ------------------------------------------------------------------ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f0e7; /* warm bone paper */
+  --surface: #fcfbf6; /* warm near-white card */
+  --surface-2: #ece5d6; /* deeper bone tint */
+  --surface-3: #e3dac8;
+  --foreground: #211c16; /* warm espresso ink */
+  --muted: #6d6453; /* warm taupe */
+  --muted-foreground: #8a8170;
+
+  --border: #e0d7c5; /* warm hairline */
+  --border-strong: #cdc1a9;
+  --input: #e5dcc9;
+  --ring: #8a3a2a;
+
+  --primary: #211c16; /* ink — primary surfaces/buttons */
+  --primary-foreground: #f6f2e8;
+  --accent: #7b2d26; /* claret — the single jewel accent */
+  --accent-strong: #6e2a22; /* deeper claret for text/links (AA on bone) */
+  --accent-foreground: #f6f2e8;
+
+  --destructive: #a52a1f;
+  --destructive-foreground: #fdf6ef;
+  --success: #3a5f40;
+  --success-foreground: #fdf6ef;
+
+  --radius: 0.25rem;
 }
 
+.dark {
+  --background: #0c0a09; /* clean near-black, faint warmth */
+  --surface: #151210;
+  --surface-2: #1d1916;
+  --surface-3: #27211c;
+  --foreground: #f3ede2; /* warm white, high contrast */
+  --muted: #a99e8d;
+  --muted-foreground: #7d7365;
+
+  --border: #2a2420;
+  --border-strong: #3d342b;
+  --input: #1d1916;
+  --ring: #dd7e61;
+
+  --primary: #f3ede2; /* warm white — crisp light-on-dark buttons */
+  --primary-foreground: #0c0a09;
+  --accent: #d8765a; /* warm terracotta-rose, vivid on near-black */
+  --accent-strong: #ec9c82; /* lighter rose for text/links on dark */
+  --accent-foreground: #0c0a09;
+
+  --destructive: #e88a7c;
+  --destructive-foreground: #0c0a09;
+  --success: #88bf90;
+  --success-foreground: #0c0a09;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tailwind theme mapping                                            */
+/* ------------------------------------------------------------------ */
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --radius-sm: 0.125rem;
+  --radius-md: 0.1875rem;
+  --radius-lg: var(--radius);
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.75rem;
+
+  --font-display: var(--font-fraunces), "Times New Roman", Georgia, serif;
+  --font-sans: var(--font-hanken), system-ui, -apple-system, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  /* Static warm scales (do not flip with theme) */
+  --color-bone-50: #fcfbf6;
+  --color-bone-100: #f4f0e7;
+  --color-bone-200: #ece5d6;
+  --color-bone-300: #ddd2bb;
+
+  --color-ink-950: #100c08;
+  --color-ink-900: #16120d;
+  --color-ink-800: #211c16;
+  --color-ink-700: #2e2820;
+  --color-ink-600: #3d362b;
+
+  --color-clay-300: #db8d72;
+  --color-clay-400: #c2604b;
+  --color-clay-500: #a8482f;
+  --color-clay-600: #8a3a2a;
+  --color-clay-700: #6e2a22; /* deep claret */
+
+  /* Flat, editorial elevation — hairline-first, barely-there shadow */
+  --shadow-soft: 0 1px 2px rgba(33, 28, 22, 0.05);
+  --shadow-lift: 0 1px 2px rgba(33, 28, 22, 0.05), 0 18px 40px -24px rgba(33, 28, 22, 0.28);
+
+  --animate-shimmer: shimmer 1.8s linear infinite;
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in: fade-in 0.5s ease-out both;
+  --animate-scale-in: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Base layer                                                        */
+/* ------------------------------------------------------------------ */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--background);
+    /* faint paper grain for tactile warmth */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 460;
+    letter-spacing: -0.02em;
+    line-height: 1.02;
+  }
+  ::selection {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* Uppercase letterspaced eyebrow */
+  .kicker {
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.28em;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent-strong);
+  }
+  /* Thin editorial rule */
+  .hairline {
+    height: 1px;
+    background: var(--border-strong);
+  }
+  .rule-accent {
+    height: 1px;
+    background: var(--accent);
+  }
+  /* Skeleton shimmer */
+  .shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--foreground) 8%, transparent) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+  /* Editorial italic accent (Fraunces italic, claret) */
+  .accent-italic {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 420;
+    color: var(--accent-strong);
+  }
+  /* Magazine drop cap */
+  .dropcap::first-letter {
+    font-family: var(--font-display);
+    font-size: 3.4em;
+    line-height: 0.8;
+    float: left;
+    margin: 0.05em 0.08em 0 0;
+    color: var(--accent-strong);
+    font-weight: 500;
+  }
+  .text-balance { text-wrap: balance; }
+  .tabular { font-variant-numeric: tabular-nums; }
 }
