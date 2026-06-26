@@ -7,7 +7,10 @@ import type { BackgroundPreset, ResolutionPreset } from "@/types";
 export const FASHN_MODEL_NAME = "product-to-model";
 export const FASHN_MODEL_USED = "fashn/product-to-model"; // stored in generations.model_used
 export const FASHN_RESOLUTION = "4k" as const; // "1k" | "2k" | "4k" (4k ≈ 16 MP)
-export const FASHN_GENERATION_MODE = "fast" as const; // "fast" | "balanced" | "quality"
+// "quality" matches FASHN's studio site — best hands/anatomy + fine print/motif
+// fidelity. "fast" (cheapest) visibly degrades hands and fabric detail.
+// 4k credit cost: fast=3 ($0.225), balanced=4 ($0.30), quality=5 ($0.375).
+export const FASHN_GENERATION_MODE = "quality" as const; // "fast" | "balanced" | "quality"
 export const FASHN_ASPECT_RATIO = "3:4" as const; // portrait, full-body fashion
 export const FASHN_POLL_INTERVAL_MS = 2000;
 export const FASHN_POLL_TIMEOUT_MS = 110_000; // stay under the route's maxDuration=120

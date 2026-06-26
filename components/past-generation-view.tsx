@@ -9,13 +9,11 @@ import {
   Copy,
   ImageOff,
   CalendarDays,
-  Frame,
-  Palette,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { PRESET_BACKGROUNDS } from "@/lib/constants";
 import { cn, downloadBlob, formatDate } from "@/lib/utils";
 import type { ApiError, DownloadRequest, Generation, GenerationStatus } from "@/types";
 
@@ -26,22 +24,6 @@ const STATUS_META: Record<GenerationStatus, { label: string; variant: BadgeProps
   failed: { label: "Failed", variant: "danger" },
 };
 
-const DEFAULT_WIDTH = 1080;
-const DEFAULT_HEIGHT = 1350;
-
-function backgroundLabel(generation: Generation): string {
-  if (!generation.background_type) return "Studio · no change";
-  if (generation.background_type === "preset") {
-    return (
-      PRESET_BACKGROUNDS.find((p) => p.id === generation.background_value)?.name ?? "Preset scene"
-    );
-  }
-  if (generation.background_type === "solid") {
-    return `Solid ${(generation.background_value ?? "").toUpperCase()}`;
-  }
-  return generation.background_value || "Custom scene";
-}
-
 export function PastGenerationView({ generation }: { generation: Generation }) {
   const { toast } = useToast();
   const [downloading, setDownloading] = React.useState(false);
@@ -50,10 +32,7 @@ export function PastGenerationView({ generation }: { generation: Generation }) {
     generation.final_image_url ??
     generation.background_image_url ??
     generation.generated_image_url;
-  const width = generation.resolution_width ?? DEFAULT_WIDTH;
-  const height = generation.resolution_height ?? DEFAULT_HEIGHT;
   const status = STATUS_META[generation.status];
-  const isSolid = generation.background_type === "solid";
 
   async function handleDownload() {
     if (!finalUrl || downloading) return;
@@ -62,12 +41,7 @@ export function PastGenerationView({ generation }: { generation: Generation }) {
       const res = await fetch("/api/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          generationId: generation.id,
-          imageUrl: finalUrl,
-          width,
-          height,
-        } satisfies DownloadRequest),
+        body: JSON.stringify({ generationId: generation.id } satisfies DownloadRequest),
       });
       if (!res.ok) {
         let message = "Download failed. Please try again.";
@@ -83,7 +57,7 @@ export function PastGenerationView({ generation }: { generation: Generation }) {
       downloadBlob(blob, `sari-ai-${generation.id}.png`);
       toast({
         title: "Download started",
-        description: `${width}×${height} PNG`,
+        description: "Full-quality 4K image — ready to print.",
         variant: "success",
       });
     } catch (e) {
@@ -132,10 +106,10 @@ export function PastGenerationView({ generation }: { generation: Generation }) {
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_minmax(0,18rem)] lg:items-start">
         {/* Images */}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Figure label="Original sari">
+          <Figure label="Original garment">
             <Image
               src={generation.sari_image_url}
-              alt="Original uploaded sari"
+              alt="Original uploaded garment"
               fill
               sizes="(max-width: 640px) 100vw, 40vw"
               className="object-contain"
@@ -168,22 +142,8 @@ export function PastGenerationView({ generation }: { generation: Generation }) {
             <MetaRow icon={CalendarDays} label="Created">
               {formatDate(generation.created_at)}
             </MetaRow>
-            <MetaRow icon={Palette} label="Background">
-              <span className="inline-flex items-center gap-2">
-                {isSolid && /^#[0-9a-fA-F]{6}$/.test(generation.background_value ?? "") && (
-                  <span
-                    className="inline-block size-3.5 rounded-full border border-border"
-                    style={{ backgroundColor: generation.background_value as string }}
-                    aria-hidden
-                  />
-                )}
-                {backgroundLabel(generation)}
-              </span>
-            </MetaRow>
-            <MetaRow icon={Frame} label="Resolution">
-              {generation.resolution_width && generation.resolution_height
-                ? `${generation.resolution_width}×${generation.resolution_height}`
-                : `${DEFAULT_WIDTH}×${DEFAULT_HEIGHT} (default)`}
+            <MetaRow icon={Sparkles} label="Quality">
+              Full 4K master
             </MetaRow>
           </dl>
 

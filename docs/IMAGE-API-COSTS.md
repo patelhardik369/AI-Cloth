@@ -11,10 +11,14 @@ rate._
 
 | What | Cost |
 |---|---|
-| **One advertisement-ready 4K image** (default "Fast" mode) | **≈ $0.225** (≈ ₹19) |
-| Same image with credit top-ups (20–35% off) | **≈ $0.15–0.18** (≈ ₹13–16) |
+| **One advertisement-ready 4K image** (default "Quality" mode) | **≈ $0.375** (≈ ₹32) |
+| Same image with credit top-ups (20–35% off) | **≈ $0.24–0.30** (≈ ₹21–26) |
 | **One full shoot** | **= one image** (single-pass; see below) |
-| Final high-res download / resize | **Free** (done on our server) |
+| Full-quality 4K download | **Free** (streamed from our storage) |
+
+> We default to **"Quality"** mode because it matches FASHN's studio site — clean hands,
+> sharp fine print and motifs. "Fast" mode is cheaper (~$0.225) but visibly degrades
+> hands and fabric detail, so it's not used by default.
 
 > Two things changed the economics vs the earlier estimate:
 > 1. **Exact garment.** FASHN warps the *actual* uploaded sari onto the model, so the
@@ -32,7 +36,7 @@ rate._
 | **Generation** | FASHN **Product-to-Model** | `POST https://api.fashn.ai/v1/run` |
 
 Billed **per generated image** in *credits*; the credit count depends on the **quality
-mode** and **resolution**. The app renders at **4K** in **"Fast"** mode by default.
+mode** and **resolution**. The app renders at **4K** in **"Quality"** mode by default.
 
 ---
 
@@ -42,12 +46,13 @@ FASHN credits are **$0.075 each** on-demand, with volume top-up discounts.
 
 | 4K mode | Credits | On-demand | Tier II (−20%) | Tier III (−35%) |
 |---|---|---|---|---|
-| **Fast — app default** | 3 | **$0.225** (₹19) | $0.18 (₹15) | $0.146 (₹13) |
+| Fast | 3 | $0.225 (₹19) | $0.18 (₹15) | $0.146 (₹13) |
 | Balanced | 4 | $0.30 (₹26) | $0.24 (₹21) | $0.195 (₹17) |
-| Quality | 5 | $0.375 (₹32) | $0.30 (₹26) | $0.244 (₹21) |
+| **Quality — app default** | 5 | **$0.375** (₹32) | $0.30 (₹26) | $0.244 (₹21) |
 
-_(Lower resolutions are cheaper still: 2K Fast = 2 credits = $0.15; 1K Fast = 1 credit
-= $0.075. The app uses 4K for advertisement quality.)_
+_(Quality is the default for poster-grade output. Dropping to Balanced saves ~20% and to
+Fast ~40%, at some cost to hands/fine-detail fidelity. Lower resolutions are cheaper
+again, but the app uses 4K for print.)_
 
 Optional add-on: a **face-identity reference** is +3 credits per image (only if used).
 
@@ -58,36 +63,36 @@ Optional add-on: a **face-identity reference** is +3 credits per image (only if 
 A complete shoot is now **a single image-generation call** that already includes the
 background and scene:
 
-1. **Generate model wearing the exact sari + chosen scene** — 1 image (always).
-2. **Download at any resolution** — **free**; resizing is done on our own server with
-   `sharp`, no API call.
+1. **Generate model wearing the exact garment + chosen scene** — 1 image (always).
+2. **Download the full-quality 4K master** — **free**; streamed straight from our storage,
+   no API call, no resizing.
 
-| Scenario | Images generated | Cost (Fast) | Cost (Balanced) |
+| Scenario | Images generated | Cost (Quality) | Cost (Balanced) |
 |---|---|---|---|
-| **One finished shoot** | 1 | **$0.225** | $0.30 |
-| Each extra regenerate (new look/seed) | +1 | +$0.225 | +$0.30 |
+| **One finished shoot** | 1 | **$0.375** | $0.30 |
+| Each extra regenerate (new look/seed) | +1 | +$0.375 | +$0.30 |
 
 There is **no daily cap** in the app — spend scales directly with how many images you
 generate.
 
 ---
 
-## 4. Volume projections (4K Fast, on-demand unless noted)
+## 4. Volume projections (4K Quality, on-demand unless noted)
 
 | Monthly shoots | On-demand | With Tier II top-ups |
 |---|---|---|
-| 100 | $22.50 (≈ ₹1,900) | $18 (≈ ₹1,550) |
-| 1,000 | $225 (≈ ₹19,400) | $180 (≈ ₹15,500) |
-| 10,000 | $2,250 (≈ ₹1.94 L) | $1,800 (≈ ₹1.55 L) |
+| 100 | $37.50 (≈ ₹3,200) | $30 (≈ ₹2,600) |
+| 1,000 | $375 (≈ ₹32,250) | $300 (≈ ₹25,800) |
+| 10,000 | $3,750 (≈ ₹3.23 L) | $3,000 (≈ ₹2.58 L) |
 
 ---
 
 ## 5. Levers to reduce cost (if the client wants)
 
-- **Stay on "Fast" 4K** (the default) — cheapest 4K, exact garment preserved.
 - **Buy credits in bulk** — top-up tiers cut 10–35% off the per-image price.
-- **Render at 2K** for web/social/catalogue where 4K isn't required → roughly a third
-  cheaper again.
+- **Drop to "Balanced" mode** — ~20% cheaper than Quality, still good for most catalogue
+  work (Quality is best for hero/poster shots where hands and fine print matter most).
+- **Render at 2K** for web/social where 4K print isn't required → cheaper again.
 - **Avoid needless regenerates** — each one is a fresh paid image.
 
 ---

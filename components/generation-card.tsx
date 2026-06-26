@@ -1,11 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Download, Eye, ImageOff, Maximize2, Palette } from "lucide-react";
+import { Download, Eye, ImageOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { buttonVariants } from "@/components/ui/button";
-import { PRESET_BACKGROUNDS } from "@/lib/constants";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import type { Generation, GenerationStatus } from "@/types";
 
@@ -19,30 +18,10 @@ const STATUS_META: Record<
   failed: { label: "Failed", variant: "danger" },
 };
 
-/** Resolve a friendly, human-readable background label for the meta row. */
-function backgroundLabel(g: Generation): string | null {
-  if (!g.background_type) return null;
-  if (g.background_type === "preset") {
-    const preset = PRESET_BACKGROUNDS.find(
-      (p) => p.id === g.background_value || p.name === g.background_value,
-    );
-    return preset?.name ?? g.background_value ?? "Preset scene";
-  }
-  if (g.background_type === "solid") {
-    return g.background_value ? `Solid ${g.background_value}` : "Solid color";
-  }
-  return g.background_value ?? "Custom scene";
-}
-
 /** A single shoot in the dashboard grid. Server component. */
 export function GenerationCard({ generation }: { generation: Generation }) {
   const imageUrl = generation.final_image_url ?? generation.generated_image_url;
   const status = STATUS_META[generation.status];
-  const background = backgroundLabel(generation);
-  const resolution =
-    generation.resolution_width && generation.resolution_height
-      ? `${generation.resolution_width}×${generation.resolution_height}`
-      : null;
 
   return (
     <Card className="group flex flex-col overflow-hidden animate-fade-up transition-shadow duration-300 hover:shadow-lift">
@@ -51,7 +30,7 @@ export function GenerationCard({ generation }: { generation: Generation }) {
         {imageUrl ? (
           <Image
             src={imageUrl}
-            alt="AI fashion shoot generated from your sari"
+            alt="AI fashion shoot generated from your garment"
             fill
             sizes="(min-width: 1280px) 23vw, (min-width: 1024px) 31vw, (min-width: 640px) 47vw, 92vw"
             className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
@@ -73,15 +52,15 @@ export function GenerationCard({ generation }: { generation: Generation }) {
           </Badge>
         </div>
 
-        {/* Source sari thumbnail */}
+        {/* Source garment thumbnail */}
         {generation.sari_image_url && (
           <div
             className="absolute right-3 top-3 size-12 overflow-hidden rounded-lg shadow-soft ring-2 ring-background/80"
-            title="Source sari"
+            title="Source garment"
           >
             <Image
               src={generation.sari_image_url}
-              alt="Source sari"
+              alt="Source garment"
               fill
               sizes="48px"
               className="object-cover"
@@ -91,27 +70,17 @@ export function GenerationCard({ generation }: { generation: Generation }) {
       </div>
 
       {/* Body */}
-      <CardContent className="flex flex-1 flex-col gap-2 p-4">
+      <CardContent className="flex flex-1 flex-col gap-1 p-4">
         <p className="text-sm font-medium text-foreground">
           {formatRelativeTime(generation.created_at)}
         </p>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-          {background && (
-            <span className="inline-flex min-w-0 items-center gap-1" title={background}>
-              <Palette className="size-3.5 shrink-0" aria-hidden />
-              <span className="truncate">{background}</span>
-            </span>
-          )}
-          {resolution && (
-            <span className="inline-flex items-center gap-1">
-              <Maximize2 className="size-3.5 shrink-0" aria-hidden />
-              <span className="tabular-nums">{resolution}</span>
-            </span>
-          )}
-          {!background && !resolution && (
-            <span className="text-muted-foreground">No background applied yet</span>
-          )}
-        </div>
+        <p className="text-xs text-muted">
+          {generation.status === "completed"
+            ? "Poster-ready 4K"
+            : generation.status === "failed"
+              ? "Generation failed"
+              : "Working on it…"}
+        </p>
       </CardContent>
 
       {/* Footer */}

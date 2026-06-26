@@ -31,8 +31,8 @@ export function EmptyState() {
         Create your first shoot
       </h2>
       <p className="mx-auto mt-2.5 max-w-sm text-sm leading-relaxed text-muted">
-        Upload a photo of your sari and watch our AI style it on a fashion model,
-        compose a runway-worthy backdrop, and export it in advertisement-ready 4K.
+        Upload a photo of any garment and watch our AI style it on a fashion model
+        against a runway-worthy backdrop, then export it as a poster-ready 4K image.
       </p>
 
       <Link

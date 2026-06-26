@@ -1,15 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import sharp from "sharp";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { clamp } from "@/lib/utils";
-import { MIN_EXPORT_DIMENSION, MAX_EXPORT_DIMENSION } from "@/lib/constants";
 import type { ApiError, DownloadRequest, Generation } from "@/types";
 
-// sharp resize + Buffer streaming require the Node runtime.
+// Buffer streaming requires the Node runtime.
 export const runtime = "nodejs";
-// Fetching a 4K source image + resizing can take a few seconds; allow headroom.
+// Fetching a 4K source image can take a few seconds; allow headroom.
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
@@ -29,27 +26,11 @@ export async function POST(req: NextRequest) {
 
   const generationId =
     typeof body.generationId === "string" ? body.generationId.trim() : "";
-  const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl.trim() : "";
-  if (!generationId || !imageUrl) {
-    return NextResponse.json<ApiError>(
-      { error: "generationId and imageUrl are required" },
-      { status: 400 },
-    );
+  if (!generationId) {
+    return NextResponse.json<ApiError>({ error: "generationId is required" }, { status: 400 });
   }
 
-  // Parse dimensions. Reject non-finite values; clamp valid ones into range (per PRD).
-  const rawWidth = Number(body.width);
-  const rawHeight = Number(body.height);
-  if (!Number.isFinite(rawWidth) || !Number.isFinite(rawHeight)) {
-    return NextResponse.json<ApiError>(
-      { error: "width and height must be valid numbers" },
-      { status: 400 },
-    );
-  }
-  const width = clamp(Math.round(rawWidth), MIN_EXPORT_DIMENSION, MAX_EXPORT_DIMENSION);
-  const height = clamp(Math.round(rawHeight), MIN_EXPORT_DIMENSION, MAX_EXPORT_DIMENSION);
-
-  // Relaxed view for row reads/writes (see app/api/generate/route.ts for why).
+  // Relaxed view for row reads (see app/api/generate/route.ts for why).
   const db = createAdminClient() as unknown as SupabaseClient;
 
   // 3. Load the target row and verify ownership.
@@ -66,41 +47,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json<ApiError>({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 4. Fetch the source image, resize, and stream it back as a PNG attachment.
+  // 4. Use the stored image (our source of truth) — never a client-supplied URL,
+  //    and never resized: stream the original, full-quality 4K master as-is.
+  const sourceUrl = row.final_image_url || row.generated_image_url;
+  if (!sourceUrl) {
+    return NextResponse.json<ApiError>(
+      { error: "This shoot has no finished image yet" },
+      { status: 409 },
+    );
+  }
+
   try {
-    const resp = await fetch(imageUrl);
+    const resp = await fetch(sourceUrl);
     if (!resp.ok) {
-      console.error(`[api/download] source fetch failed (${resp.status}) for ${imageUrl}`);
+      console.error(`[api/download] source fetch failed (${resp.status}) for ${sourceUrl}`);
       return NextResponse.json<ApiError>(
         { error: "Could not fetch the source image" },
         { status: 502 },
       );
     }
-    const input = Buffer.from(await resp.arrayBuffer());
-
-    const out = await sharp(input)
-      .resize(width, height, { fit: "cover", position: "centre" })
-      .png({ quality: 100 })
-      .toBuffer();
-
-    // Best-effort: record the chosen export resolution.
-    try {
-      await db
-        .from("generations")
-        .update({
-          resolution_width: width,
-          resolution_height: height,
-        } satisfies Partial<Generation>)
-        .eq("id", generationId);
-    } catch (recordErr) {
-      console.error("[api/download] failed to record resolution:", recordErr);
-    }
+    const contentType = (resp.headers.get("content-type") || "image/png").split(";")[0].trim();
+    const ext = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+    const out = Buffer.from(await resp.arrayBuffer());
 
     return new NextResponse(new Uint8Array(out), {
       status: 200,
       headers: {
-        "Content-Type": "image/png",
-        "Content-Disposition": `attachment; filename="sari-ai-${generationId}.png"`,
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="sari-ai-${generationId}.${ext}"`,
         "Content-Length": String(out.length),
         "Cache-Control": "no-store",
       },
@@ -108,7 +82,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[api/download] export failed:", err);
     return NextResponse.json<ApiError>(
-      { error: "Image export failed. Please try again." },
+      { error: "Image download failed. Please try again." },
       { status: 502 },
     );
   }

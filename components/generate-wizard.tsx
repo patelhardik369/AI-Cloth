@@ -26,7 +26,6 @@ import { useToast } from "@/components/ui/toast";
 import { WizardStepper } from "@/components/wizard-stepper";
 import { ImageUploadZone } from "@/components/image-upload-zone";
 import { GenerationProgress } from "@/components/generation-progress";
-import { ResolutionSelector, type ResolutionValue } from "@/components/resolution-selector";
 import {
   GENERATION_PROGRESS_STEPS,
   PRESET_BACKGROUNDS,
@@ -43,8 +42,6 @@ import type {
 } from "@/types";
 
 type Step = 1 | 2 | 3;
-
-const DEFAULT_RESOLUTION: ResolutionValue = { width: 1080, height: 1350 };
 
 function errorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
@@ -78,7 +75,6 @@ export function GenerateWizard({ userId }: { userId: string }) {
   const [sariImageUrl, setSariImageUrl] = React.useState<string | null>(null);
   const [generationId, setGenerationId] = React.useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = React.useState<string | null>(null);
-  const [resolution, setResolution] = React.useState<ResolutionValue>(DEFAULT_RESOLUTION);
 
   // Status flags
   const [uploading, setUploading] = React.useState(false);
@@ -149,7 +145,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
       }
 
       setGenerationId(row.id);
-      toast({ title: "Sari uploaded", description: "Starting your AI shoot…", variant: "success" });
+      toast({ title: "Garment uploaded", description: "Starting your AI shoot…", variant: "success" });
       setStep(2);
       void runGenerate(row.id, url, composedPrompt());
     } catch (e) {
@@ -190,12 +186,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
       const res = await fetch("/api/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          generationId,
-          imageUrl: generatedImageUrl,
-          width: resolution.width,
-          height: resolution.height,
-        } satisfies DownloadRequest),
+        body: JSON.stringify({ generationId } satisfies DownloadRequest),
       });
 
       if (!res.ok) {
@@ -206,7 +197,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
       downloadBlob(blob, `sari-ai-${generationId}.png`);
       toast({
         title: "Download started",
-        description: `${resolution.width}×${resolution.height} PNG`,
+        description: "Full-quality 4K image — ready to print.",
         variant: "success",
       });
     } catch (e) {
@@ -239,7 +230,6 @@ export function GenerateWizard({ userId }: { userId: string }) {
     setSariImageUrl(null);
     setGenerationId(null);
     setGeneratedImageUrl(null);
-    setResolution(DEFAULT_RESOLUTION);
     setGenError(null);
   }
 
@@ -469,8 +459,8 @@ export function GenerateWizard({ userId }: { userId: string }) {
               <StepHeading
                 icon={Download}
                 kicker="Step 3 · Export"
-                title="Download your shoot"
-                description="Pick a resolution and export a crisp PNG, ready for ads, catalogues or social."
+                title="Download your poster"
+                description="Your full-quality 4K master — exactly as generated, ready to print large or share."
               />
 
               <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_1fr] lg:items-start">
@@ -487,15 +477,20 @@ export function GenerateWizard({ userId }: { userId: string }) {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-2">
-                    <Badge variant="accent">4K master</Badge>
-                    <Badge variant="outline">
-                      {resolution.width}×{resolution.height}
-                    </Badge>
+                    <Badge variant="accent">Full-quality 4K</Badge>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-5">
-                  <ResolutionSelector value={resolution} onChange={setResolution} disabled={downloading} />
+                  <div className="rounded-xl border border-border bg-surface-2 p-5">
+                    <h3 className="font-display text-lg font-semibold tracking-tight">
+                      Poster-ready, no compression
+                    </h3>
+                    <p className="mt-1.5 text-sm text-muted">
+                      We export the original 4K image straight from your library — no resizing or
+                      cropping — so it stays razor-sharp when printed large.
+                    </p>
+                  </div>
 
                   <div className="flex flex-col gap-2.5 border-t border-border pt-5">
                     <div className="flex flex-col gap-2.5 sm:flex-row">
@@ -507,7 +502,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
                         className="flex-1"
                       >
                         {!downloading && <Download className="size-4" aria-hidden />}
-                        {downloading ? "Preparing…" : "Download image"}
+                        {downloading ? "Preparing…" : "Download 4K image"}
                       </Button>
                       <Button variant="outline" size="lg" onClick={copyLink} className="sm:flex-none">
                         <Copy className="size-4" aria-hidden />
