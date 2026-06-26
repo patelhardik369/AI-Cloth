@@ -78,7 +78,7 @@ export function ImageUploadZone({ onFileSelected, disabled }: ImageUploadZonePro
         className="sr-only"
         disabled={disabled}
         onChange={(e) => handleFile(e.target.files?.[0])}
-        aria-label="Upload a sari photo"
+        aria-label="Upload a garment photo"
       />
 
       {preview ? (
@@ -88,7 +88,7 @@ export function ImageUploadZone({ onFileSelected, disabled }: ImageUploadZonePro
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={preview}
-              alt={meta?.name ? `Preview of ${meta.name}` : "Selected sari preview"}
+              alt={meta?.name ? `Preview of ${meta.name}` : "Selected garment preview"}
               className="max-h-[28rem] w-auto object-contain"
             />
           </div>

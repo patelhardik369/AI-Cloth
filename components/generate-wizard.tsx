@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Image as ImageIcon,
   Sparkles,
+  User,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadSariImage } from "@/lib/supabase/storage";
@@ -30,6 +31,8 @@ import {
   GENERATION_PROGRESS_STEPS,
   PRESET_BACKGROUNDS,
   DEFAULT_GENERATION_PROMPT,
+  GARMENT_FIDELITY_INSTRUCTION,
+  MODEL_OPTIONS,
 } from "@/lib/constants";
 import { cn, downloadBlob } from "@/lib/utils";
 import type {
@@ -65,7 +68,13 @@ export function GenerateWizard({ userId }: { userId: string }) {
 
   // Inputs / artifacts
   const [file, setFile] = React.useState<File | null>(null);
+  // Model subject (always set) — drives a male/female fashion model.
+  const [modelId, setModelId] = React.useState<string>("female");
+  // Optional extra styling details (the editable prompt box).
   const [prompt, setPrompt] = React.useState<string>(DEFAULT_GENERATION_PROMPT);
+  // Single-select scene (preset id) kept separate from the free-text prompt so
+  // it can never stack — it's merged into one "Setting:" line at submit time.
+  const [sceneId, setSceneId] = React.useState<string | null>("white-studio");
   const [sariImageUrl, setSariImageUrl] = React.useState<string | null>(null);
   const [generationId, setGenerationId] = React.useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = React.useState<string | null>(null);
@@ -142,7 +151,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
       setGenerationId(row.id);
       toast({ title: "Sari uploaded", description: "Starting your AI shoot…", variant: "success" });
       setStep(2);
-      void runGenerate(row.id, url, prompt.trim());
+      void runGenerate(row.id, url, composedPrompt());
     } catch (e) {
       toast({ title: "Upload failed", description: errorMessage(e), variant: "error" });
     } finally {
@@ -151,17 +160,27 @@ export function GenerateWizard({ userId }: { userId: string }) {
   }
 
   function regenerate() {
-    if (!generationId || !sariImageUrl || !prompt.trim()) return;
+    if (!generationId || !sariImageUrl) return;
     setGeneratedImageUrl(null);
-    void runGenerate(generationId, sariImageUrl, prompt.trim());
+    void runGenerate(generationId, sariImageUrl, composedPrompt());
   }
 
-  /** Append a preset scene description to the editable prompt. */
-  function addScene(sceneText: string) {
-    setPrompt((prev) => {
-      const base = prev.trimEnd();
-      return base ? `${base}\n${sceneText}` : sceneText;
-    });
+  /**
+   * Build the final prompt sent to the engine. Order is deliberate and the
+   * garment-fidelity line is ALWAYS first and never user-editable, so the exact
+   * uploaded garment is preserved no matter what the user types or clears.
+   */
+  function composedPrompt(): string {
+    const model = MODEL_OPTIONS.find((m) => m.id === modelId) ?? MODEL_OPTIONS[0];
+    const scene = sceneId ? PRESET_BACKGROUNDS.find((p) => p.id === sceneId) : null;
+    const parts = [
+      `Photorealistic full-body fashion photograph of ${model.prompt} wearing the uploaded garment.`,
+      GARMENT_FIDELITY_INSTRUCTION,
+    ];
+    const details = prompt.trim();
+    if (details) parts.push(details);
+    if (scene) parts.push(`Setting: ${scene.prompt}.`);
+    return parts.join("\n");
   }
 
   async function handleDownload() {
@@ -214,7 +233,9 @@ export function GenerateWizard({ userId }: { userId: string }) {
   function resetWizard() {
     setStep(1);
     setFile(null);
+    setModelId("female");
     setPrompt(DEFAULT_GENERATION_PROMPT);
+    setSceneId("white-studio");
     setSariImageUrl(null);
     setGenerationId(null);
     setGeneratedImageUrl(null);
@@ -232,7 +253,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
           Create your fashion shoot
         </h1>
         <p className="mx-auto mt-2 max-w-xl text-balance text-muted">
-          Upload a sari, describe the model, pose and scene, and export advertisement-ready in 4K —
+          Upload any garment, choose a model and a backdrop, and export a poster-ready 4K image —
           all in a single generation.
         </p>
       </header>
@@ -246,41 +267,66 @@ export function GenerateWizard({ userId }: { userId: string }) {
               <StepHeading
                 icon={ImageIcon}
                 kicker="Step 1 · Create"
-                title="Upload & describe your shoot"
-                description="Add a clear photo of the full garment, then describe the model, pose, scene and any props. The exact sari is preserved automatically."
+                title="Upload your garment"
+                description="Add a clear, well-lit photo of the full outfit — any garment works. Pick a model and a backdrop; your garment is always worn exactly as you uploaded it."
               />
 
               <ImageUploadZone onFileSelected={setFile} disabled={uploading} />
 
+              {/* Model */}
               <div className="flex flex-col gap-2">
-                <Label htmlFor="shoot-prompt">Describe your shoot</Label>
-                <Textarea
-                  id="shoot-prompt"
-                  value={prompt}
-                  disabled={uploading}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Describe the model, drape, pose, background scene and any props…"
-                  className="min-h-44"
-                />
-                <p className="text-xs text-muted">
-                  Tweak anything — the model&apos;s look, the pose, the lighting, the backdrop. Your
-                  uploaded sari is worn exactly as-is.
-                </p>
+                <Label>Choose your model</Label>
+                <div role="radiogroup" aria-label="Model" className="grid grid-cols-2 gap-2 sm:max-w-sm">
+                  {MODEL_OPTIONS.map((m) => {
+                    const selected = modelId === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        disabled={uploading}
+                        onClick={() => setModelId(m.id)}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                          "disabled:cursor-not-allowed disabled:opacity-50",
+                          selected
+                            ? "border-accent bg-accent/10 text-accent-strong"
+                            : "border-border bg-surface-2 text-foreground hover:border-accent",
+                        )}
+                      >
+                        <User className="size-4" aria-hidden />
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-                <div className="mt-1 flex flex-col gap-2">
-                  <span className="text-xs font-medium text-muted">Quick scenes — tap to add</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PRESET_BACKGROUNDS.map((preset) => (
+              {/* Backdrop */}
+              <div className="flex flex-col gap-2">
+                <Label>Choose a backdrop</Label>
+                <div role="radiogroup" aria-label="Backdrop" className="flex flex-wrap gap-1.5">
+                  {PRESET_BACKGROUNDS.map((preset) => {
+                    const selected = sceneId === preset.id;
+                    return (
                       <button
                         key={preset.id}
                         type="button"
+                        role="radio"
+                        aria-checked={selected}
                         disabled={uploading}
-                        onClick={() => addScene(preset.prompt)}
+                        onClick={() =>
+                          setSceneId((prev) => (prev === preset.id ? null : preset.id))
+                        }
                         className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-foreground transition-colors",
-                          "hover:border-accent hover:text-accent-strong",
+                          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                           "disabled:cursor-not-allowed disabled:opacity-50",
+                          selected
+                            ? "border-accent bg-accent/10 text-accent-strong"
+                            : "border-border bg-surface-2 text-foreground hover:border-accent hover:text-accent-strong",
                         )}
                       >
                         <span
@@ -290,22 +336,54 @@ export function GenerateWizard({ userId }: { userId: string }) {
                         />
                         {preset.name}
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
+                {sceneId ? (
+                  <p className="text-xs text-muted">
+                    Backdrop:{" "}
+                    <span className="text-foreground">
+                      {PRESET_BACKGROUNDS.find((p) => p.id === sceneId)?.description}
+                    </span>{" "}
+                    — tap again to clear and describe your own below.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted">
+                    No preset backdrop — describe the scene you want in the details below.
+                  </p>
+                )}
+              </div>
+
+              {/* Details (optional) */}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="shoot-prompt">
+                  Add details <span className="font-normal text-muted">(optional)</span>
+                </Label>
+                <Textarea
+                  id="shoot-prompt"
+                  value={prompt}
+                  disabled={uploading}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="e.g. confident standing pose, soft daylight, gold jewellery, looking at the camera…"
+                  className="min-h-36"
+                />
+                <p className="text-xs text-muted">
+                  Optional — fine-tune the pose, mood, lighting or styling. You don&apos;t need to
+                  mention the garment; it&apos;s always worn exactly as you uploaded it.
+                </p>
               </div>
 
               <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
                 <Button
                   variant="primary"
                   size="lg"
-                  disabled={!file || !prompt.trim()}
+                  disabled={!file}
                   loading={uploading}
                   onClick={startUploadAndGenerate}
                   className="sm:min-w-52"
                 >
                   {!uploading && <Wand2 className="size-4" aria-hidden />}
-                  {uploading ? "Uploading…" : "Generate shoot"}
+                  {uploading ? "Uploading…" : "Generate poster"}
                 </Button>
               </div>
             </section>
@@ -317,7 +395,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
                 icon={Sparkles}
                 kicker="Step 2 · Result"
                 title="Your generated shoot"
-                description="Our AI is dressing a studio model in your exact sari with editorial lighting."
+                description="Our AI is dressing the model in your exact garment with editorial lighting."
               />
 
               {generating && (
@@ -352,15 +430,15 @@ export function GenerateWizard({ userId }: { userId: string }) {
                 <div className="flex flex-col gap-6">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <ResultFrame
-                      label="Your sari"
+                      label="Your garment"
                       src={sariImageUrl}
-                      alt="Uploaded sari"
+                      alt="Uploaded garment"
                       fit="contain"
                     />
                     <ResultFrame
                       label="Generated shoot"
                       src={generatedImageUrl}
-                      alt="AI-generated model wearing the sari"
+                      alt="AI-generated model wearing the uploaded garment"
                       fit="cover"
                       highlight
                     />

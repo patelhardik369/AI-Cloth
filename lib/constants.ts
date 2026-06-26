@@ -116,15 +116,31 @@ export const GENERATION_PROGRESS_STEPS = [
 /* ----------------------- Prompt engineering ----------------------- */
 
 /**
- * Default styling prompt for FASHN Product-to-Model. The uploaded sari (the
- * `product_image`) is preserved by the model itself — the prompt steers the
- * model's appearance, drape, pose and scene. It seeds an editable textarea in
- * the wizard, so users can tweak the look, pose, background and props freely.
+ * Always-applied garment-fidelity instruction. This is prepended to EVERY
+ * generation (the user cannot edit it away), so the model always wears the
+ * EXACT uploaded garment — the core promise of the product. Garment-agnostic:
+ * it works for a sari, kurta, sherwani, shirt, lehenga, suit, gown, etc.
+ */
+export const GARMENT_FIDELITY_INSTRUCTION =
+  "The model is wearing the exact garment from the uploaded image, fitted naturally on the body. Reproduce the garment exactly as-is — identical fabric, colour, print, pattern, embroidery, texture, cut and every detail. Do not restyle, recolour, redesign, crop or swap the garment.";
+
+/** Model choices offered in the wizard (drives the subject of the prompt). */
+export const MODEL_OPTIONS = [
+  { id: "female", label: "Female model", prompt: "a professional female fashion model" },
+  { id: "male", label: "Male model", prompt: "a professional male fashion model" },
+] as const;
+
+export type ModelOptionId = (typeof MODEL_OPTIONS)[number]["id"];
+
+/**
+ * Default *extra details* that seed the editable prompt box. Kept garment- and
+ * gender-neutral so it works for any outfit — the garment-fidelity line, the
+ * chosen model and the chosen scene are added around it at generation time.
+ * (No backdrop line here on purpose: the scene comes from the wizard's
+ * single-select picker, appended once as a "Setting:" line.)
  */
 export const DEFAULT_GENERATION_PROMPT = [
-  "An elegant Indian female fashion model wearing the uploaded sari, draped in a classic Nivi style with the pallu falling gracefully over the shoulder so the decorative border is on show, paired with a matching fitted blouse.",
-  "Full-body editorial pose: standing gracefully so the complete drape and pallu are visible from head to toe.",
-  "Natural realistic skin texture, tasteful minimal jewellery, neat hair styling and a warm confident expression.",
-  "Setting: a clean, seamless light studio backdrop with soft, diffused three-point lighting and gentle natural shadows.",
-  "High-end fashion photography, 85mm lens, professional colour grading, ultra-sharp focus so the fabric weave and embroidery read crisply. Advertisement-quality, photorealistic, ultra-detailed.",
+  "Full-body editorial pose, standing naturally so the entire outfit is visible from head to toe.",
+  "Realistic skin texture, tasteful styling, neat hair and a warm, confident expression.",
+  "High-end fashion photography, soft diffused studio lighting, professional colour grading, ultra-sharp focus and fine fabric detail. Advertisement-quality, photorealistic, ultra-detailed and poster-ready.",
 ].join("\n");
