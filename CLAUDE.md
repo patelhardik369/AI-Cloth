@@ -4,10 +4,11 @@ Guidance for Claude Code (and any sub-agents) working in this repository.
 
 ## What this is
 A production B2B SaaS web app: a user uploads a photo of an Indian sari (or any
-garment); the app uses AI to (1) generate a realistic fashion model wearing that
-sari, (2) replace the background, and (3) export the result at any resolution.
-Target users: Indian fashion brands, e-commerce sellers, Instagram boutiques, ad
-agencies. Output must be advertisement-ready and 4K-capable.
+garment); the app uses AI to generate a realistic fashion model wearing **the exact
+same garment**, in a **single pass** that also sets the pose/scene/background from a
+user-editable prompt, then exports the result at any resolution. Target users: Indian
+fashion brands, e-commerce sellers, Instagram boutiques, ad agencies. Output must be
+advertisement-ready and 4K-capable.
 
 ## Tech stack (as actually installed — note deviations from PRD.md)
 - **Next.js 16.2** App Router + **React 19** + **TypeScript** (strict)
@@ -15,45 +16,52 @@ agencies. Output must be advertisement-ready and 4K-capable.
   `tailwind.config.ts` (PRD assumed v3; we use v4). Dark mode is **class-based**
   (`@custom-variant dark`).
 - **Supabase** via `@supabase/ssr` (Auth, Postgres, Storage)
-- **OpenRouter Unified Image API** for generation/editing
+- **FASHN Product-to-Model API** (`api.fashn.ai`) for generation — chosen over Gemini
+  because it warps the *actual garment pixels* onto the model (exact-garment fidelity)
+  and renders native 4K in one call. (Gemini/OpenRouter was removed; it re-painted the
+  cloth.)
 - **sharp** for server-side resize in the download route
 - **lucide-react** icons, **class-variance-authority**, **clsx + tailwind-merge** (`cn`)
 
-## ⚠️ OpenRouter facts (verified — PRD.md was partly wrong)
-- Endpoint is **`POST https://openrouter.ai/api/v1/images`** (NOT `/images/generations`).
-- Input/reference images for editing go in **`input_references: [{ type:"image_url", image_url:{ url } }]`**.
-- Response returns **base64** at **`data[0].b64_json`** (NOT a URL). We decode →
-  `Buffer` → upload to Supabase Storage (our permanent source of truth).
-- Models (verified slugs):
-  - Primary: `google/gemini-3-pro-image-preview` (Nano Banana Pro)
-  - Fallback: `google/gemini-3.1-flash-image-preview` (Nano Banana 2)
-- Always send headers `Authorization: Bearer …`, `HTTP-Referer`, `X-Title`.
-- Request also sends `resolution:"4K"`, `aspect_ratio:"3:4"`, `output_format:"png"`.
-- All OpenRouter calls are **server-only** (`lib/openrouter.ts` imports `server-only`).
+## ⚠️ FASHN facts (verified)
+- Run: **`POST https://api.fashn.ai/v1/run`**, header `Authorization: Bearer <FASHN_API_KEY>`.
+  Body: `{ model_name: "product-to-model", inputs: {…} }`.
+- Inputs we send: `product_image` (the sari's Supabase public URL), `prompt`
+  (free-text: model/pose/scene/props), `aspect_ratio:"3:4"`, `resolution:"4k"`,
+  `generation_mode:"fast"`, `output_format:"png"`, `return_base64:false`, `num_images:1`,
+  `seed` (**randomised per call** in `lib/fashn.ts` so "Regenerate" differs).
+- **Async:** run returns `{ id }`; poll **`GET /v1/status/{id}`** until
+  `status:"completed"` → `output:[cdnUrl]` (or `"failed"` with `error`).
+- Output is a **hosted CDN URL** → we fetch it → `Buffer` → upload to Supabase Storage
+  (our permanent source of truth) via `uploadGeneratedImageFromUrl`.
+- All FASHN calls are **server-only** (`lib/fashn.ts` imports `server-only`).
+- Tunables live in `lib/constants.ts` (`FASHN_*`). 4k modes: fast≈$0.225, balanced≈$0.30,
+  quality≈$0.375 per image.
 
 ## Architecture & data flow
 1. **Upload (client):** browser uploads the sari File to `sari-uploads/{userId}/…`
    via the anon Supabase client → public URL. A `generations` row is created.
-2. **Generate (`/api/generate`):** verifies session, enforces daily limit, calls
-   `generateFashionModel(sariUrl)`, uploads the returned base64 to
-   `generated-outputs/…` (service role), updates the row → returns our CDN URL.
-3. **Background (`/api/background`):** calls `changeBackground(modelUrl, type, value)`,
-   uploads, updates row.
-4. **Download (`/api/download`):** fetches the final image, `sharp.resize(w,h)`,
+2. **Generate (`/api/generate`) — single pass:** verifies session + row ownership,
+   calls `generateFashionModel(sariUrl, prompt)` (one FASHN call carrying all
+   instructions), fetches the FASHN CDN result and re-uploads it to `generated-outputs/…`
+   (service role), updates the row (`generated_image_url == final_image_url`) → returns
+   our CDN URL. **No daily limit.** There is **no** separate background step.
+3. **Download (`/api/download`):** fetches the final image, `sharp.resize(w,h)`,
    streams a PNG attachment; records the chosen resolution.
 
 ## Key conventions
 - **Supabase clients:** `lib/supabase/client.ts` (browser), `server.ts` (RLS, per
   request — `cookies()` is async, `await createClient()`), `admin.ts` (service role,
   server-only, bypasses RLS), `middleware.ts` (`updateSession`).
-- **Auth/usage helpers:** `lib/auth.ts` — `getAuthenticatedUser`, `getDailyUsage`,
-  `countTodayUsage`. Daily limit = `DAILY_GENERATION_LIMIT` (10).
+- **Auth helpers:** `lib/auth.ts` — `getAuthenticatedUser`, `getProfile`. (No usage/limit
+  helpers — the daily cap was removed.)
 - **Server actions:** `app/(auth)/actions.ts` → `signIn`, `signUp`, `signOut`.
 - **Types are the contract:** import shared types from `@/types`. API request/response
-  shapes live there (`GenerateRequest`, `BackgroundResponse`, etc.). Don't redefine.
-- **Constants & prompts:** `lib/constants.ts` — models, limits, `PRESET_BACKGROUNDS`,
-  `RESOLUTION_PRESETS`, `buildGenerationPrompt`, `buildBackgroundPrompt`. Prompt
-  engineering for garment fidelity / 4K lives here; reuse it, don't inline prompts.
+  shapes live there (`GenerateRequest` — now carries `prompt`, `GenerateResponse`,
+  `DownloadRequest`). Don't redefine.
+- **Constants & prompt:** `lib/constants.ts` — `FASHN_*` settings, `PRESET_BACKGROUNDS`
+  (also used as "quick scene" chips), `RESOLUTION_PRESETS`, and `DEFAULT_GENERATION_PROMPT`
+  (seeds the editable prompt textarea in the wizard). Reuse it; don't inline prompts.
 - **Import alias:** `@/*` → repo root.
 
 ## Design system (use these — do not hardcode hex in components)
@@ -83,13 +91,15 @@ npx tsc --noEmit     # typecheck only
 ```
 
 ## Setup (see SETUP.md for detail)
-1. `cp .env.local.example .env.local` and fill Supabase + OpenRouter keys.
+1. `cp .env.local.example .env.local` and fill Supabase + `FASHN_API_KEY`.
 2. Run `supabase/migrations/0001_init.sql` in the Supabase SQL Editor (creates
    tables, RLS, triggers, storage buckets + policies).
 3. `npm run dev`.
 
 ## Gotchas
 - Next 16: `cookies()`/`headers()` are async — always `await`.
-- Never import `lib/supabase/admin.ts` or `lib/openrouter.ts` into client components.
-- Generated images are persisted to Storage; never rely on transient model URLs.
+- Never import `lib/supabase/admin.ts` or `lib/fashn.ts` into client components.
+- Generated images are persisted to Storage; never rely on transient FASHN CDN URLs.
+- FASHN is async (run → poll); the generate route's `maxDuration=120` bounds the poll
+  loop (`FASHN_POLL_TIMEOUT_MS≈110s`).
 - The middleware + the `(protected)` layout both guard routes (defense in depth).

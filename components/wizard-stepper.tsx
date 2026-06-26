@@ -1,18 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Check, UploadCloud, Sparkles, Image as ImageIcon, Download } from "lucide-react";
+import { Check, UploadCloud, Sparkles, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
-  { n: 1, label: "Upload", icon: UploadCloud },
-  { n: 2, label: "Generate", icon: Sparkles },
-  { n: 3, label: "Background", icon: ImageIcon },
-  { n: 4, label: "Export", icon: Download },
+  { n: 1, label: "Create", icon: UploadCloud },
+  { n: 2, label: "Result", icon: Sparkles },
+  { n: 3, label: "Export", icon: Download },
 ] as const;
 
-/** Horizontal 4-step progress indicator for the generation wizard. */
-export function WizardStepper({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
+/** Horizontal 3-step progress indicator for the generation wizard. */
+export function WizardStepper({ currentStep }: { currentStep: 1 | 2 | 3 }) {
   return (
     <nav aria-label="Generation progress" className="mx-auto max-w-2xl">
       <ol className="flex items-start">

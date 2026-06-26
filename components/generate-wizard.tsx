@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Image from "next/image";
-import Link from "next/link";
 import {
   Wand2,
   ArrowRight,
@@ -12,46 +11,35 @@ import {
   Download,
   Copy,
   AlertTriangle,
-  CalendarClock,
   Image as ImageIcon,
   Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadSariImage } from "@/lib/supabase/storage";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { WizardStepper } from "@/components/wizard-stepper";
 import { ImageUploadZone } from "@/components/image-upload-zone";
 import { GenerationProgress } from "@/components/generation-progress";
-import { BackgroundPicker, type BackgroundSelection } from "@/components/background-picker";
-import { ComparisonSlider } from "@/components/comparison-slider";
 import { ResolutionSelector, type ResolutionValue } from "@/components/resolution-selector";
 import {
   GENERATION_PROGRESS_STEPS,
-  BACKGROUND_PROGRESS_STEPS,
   PRESET_BACKGROUNDS,
-  DAILY_GENERATION_LIMIT,
+  DEFAULT_GENERATION_PROMPT,
 } from "@/lib/constants";
 import { cn, downloadBlob } from "@/lib/utils";
 import type {
   ApiError,
-  BackgroundRequest,
-  BackgroundResponse,
-  BackgroundType,
   GenerateRequest,
   GenerateResponse,
   DownloadRequest,
 } from "@/types";
 
-type Step = 1 | 2 | 3 | 4;
-
-interface BackgroundResult {
-  type: BackgroundType;
-  value: string;
-  url: string;
-}
+type Step = 1 | 2 | 3;
 
 const DEFAULT_RESOLUTION: ResolutionValue = { width: 1080, height: 1350 };
 
@@ -77,48 +65,35 @@ export function GenerateWizard({ userId }: { userId: string }) {
 
   // Inputs / artifacts
   const [file, setFile] = React.useState<File | null>(null);
+  const [prompt, setPrompt] = React.useState<string>(DEFAULT_GENERATION_PROMPT);
   const [sariImageUrl, setSariImageUrl] = React.useState<string | null>(null);
   const [generationId, setGenerationId] = React.useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = React.useState<string | null>(null);
-  const [bgSelection, setBgSelection] = React.useState<BackgroundSelection>({
-    type: "preset",
-    value: "",
-  });
-  const [backgroundResult, setBackgroundResult] = React.useState<BackgroundResult | null>(null);
-  const [finalImageUrl, setFinalImageUrl] = React.useState<string | null>(null);
   const [resolution, setResolution] = React.useState<ResolutionValue>(DEFAULT_RESOLUTION);
 
   // Status flags
   const [uploading, setUploading] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
-  const [applyingBg, setApplyingBg] = React.useState(false);
   const [downloading, setDownloading] = React.useState(false);
   const [genError, setGenError] = React.useState<string | null>(null);
-  const [limitReached, setLimitReached] = React.useState(false);
 
   /* ----------------------------- Actions ----------------------------- */
 
   const runGenerate = React.useCallback(
-    async (genId: string, sariUrl: string) => {
+    async (genId: string, sariUrl: string, promptText: string) => {
       setGenerating(true);
       setGenError(null);
-      setLimitReached(false);
       try {
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ generationId: genId, sariImageUrl: sariUrl } satisfies GenerateRequest),
+          body: JSON.stringify({
+            generationId: genId,
+            sariImageUrl: sariUrl,
+            prompt: promptText,
+          } satisfies GenerateRequest),
         });
 
-        if (res.status === 429) {
-          setLimitReached(true);
-          toast({
-            title: "Daily limit reached",
-            description: `You've used all ${DAILY_GENERATION_LIMIT} generations today. It resets at midnight.`,
-            variant: "error",
-          });
-          return;
-        }
         if (!res.ok) {
           throw new Error(await readApiError(res, "Generation failed. Please try again."));
         }
@@ -126,7 +101,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
         const data = (await res.json()) as GenerateResponse;
         setGeneratedImageUrl(data.generatedImageUrl);
         toast({
-          title: "Your model is ready",
+          title: "Your shoot is ready",
           description: "Review the result and continue when you're happy.",
           variant: "success",
         });
@@ -141,7 +116,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
   );
 
   async function startUploadAndGenerate() {
-    if (!file || uploading) return;
+    if (!file || uploading || !prompt.trim()) return;
     setUploading(true);
     setGenError(null);
     try {
@@ -167,7 +142,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
       setGenerationId(row.id);
       toast({ title: "Sari uploaded", description: "Starting your AI shoot…", variant: "success" });
       setStep(2);
-      void runGenerate(row.id, url);
+      void runGenerate(row.id, url, prompt.trim());
     } catch (e) {
       toast({ title: "Upload failed", description: errorMessage(e), variant: "error" });
     } finally {
@@ -176,55 +151,21 @@ export function GenerateWizard({ userId }: { userId: string }) {
   }
 
   function regenerate() {
-    if (!generationId || !sariImageUrl) return;
+    if (!generationId || !sariImageUrl || !prompt.trim()) return;
     setGeneratedImageUrl(null);
-    setBackgroundResult(null);
-    setFinalImageUrl(null);
-    void runGenerate(generationId, sariImageUrl);
+    void runGenerate(generationId, sariImageUrl, prompt.trim());
   }
 
-  async function applyBackground() {
-    if (!generationId || !generatedImageUrl || applyingBg) return;
-    setApplyingBg(true);
-    try {
-      const res = await fetch("/api/background", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          generationId,
-          modelImageUrl: generatedImageUrl,
-          backgroundType: bgSelection.type,
-          backgroundValue: bgSelection.value,
-        } satisfies BackgroundRequest),
-      });
-
-      if (!res.ok) {
-        throw new Error(await readApiError(res, "Couldn't apply that background."));
-      }
-
-      const data = (await res.json()) as BackgroundResponse;
-      setBackgroundResult({ type: bgSelection.type, value: bgSelection.value, url: data.backgroundImageUrl });
-      setFinalImageUrl(data.backgroundImageUrl);
-      toast({ title: "Background applied", description: "Slide to compare the result.", variant: "success" });
-    } catch (e) {
-      toast({ title: "Background failed", description: errorMessage(e), variant: "error" });
-    } finally {
-      setApplyingBg(false);
-    }
-  }
-
-  function skipBackground() {
-    setBackgroundResult(null);
-    setFinalImageUrl(generatedImageUrl);
-    setStep(4);
-  }
-
-  function continueToExport() {
-    if (finalImageUrl) setStep(4);
+  /** Append a preset scene description to the editable prompt. */
+  function addScene(sceneText: string) {
+    setPrompt((prev) => {
+      const base = prev.trimEnd();
+      return base ? `${base}\n${sceneText}` : sceneText;
+    });
   }
 
   async function handleDownload() {
-    if (!generationId || !finalImageUrl || downloading) return;
+    if (!generationId || !generatedImageUrl || downloading) return;
     setDownloading(true);
     try {
       const res = await fetch("/api/download", {
@@ -232,7 +173,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           generationId,
-          imageUrl: finalImageUrl,
+          imageUrl: generatedImageUrl,
           width: resolution.width,
           height: resolution.height,
         } satisfies DownloadRequest),
@@ -257,9 +198,9 @@ export function GenerateWizard({ userId }: { userId: string }) {
   }
 
   async function copyLink() {
-    if (!finalImageUrl) return;
+    if (!generatedImageUrl) return;
     try {
-      await navigator.clipboard.writeText(finalImageUrl);
+      await navigator.clipboard.writeText(generatedImageUrl);
       toast({ title: "Link copied", description: "Image URL copied to clipboard.", variant: "success" });
     } catch {
       toast({
@@ -273,31 +214,12 @@ export function GenerateWizard({ userId }: { userId: string }) {
   function resetWizard() {
     setStep(1);
     setFile(null);
+    setPrompt(DEFAULT_GENERATION_PROMPT);
     setSariImageUrl(null);
     setGenerationId(null);
     setGeneratedImageUrl(null);
-    setBgSelection({ type: "preset", value: "" });
-    setBackgroundResult(null);
-    setFinalImageUrl(null);
     setResolution(DEFAULT_RESOLUTION);
     setGenError(null);
-    setLimitReached(false);
-  }
-
-  /* ---------------------------- Derived ------------------------------ */
-
-  const bgValid =
-    (bgSelection.type === "preset" && bgSelection.value.length > 0) ||
-    (bgSelection.type === "custom" && bgSelection.value.trim().length > 0) ||
-    (bgSelection.type === "solid" && /^#[0-9a-fA-F]{6}$/.test(bgSelection.value));
-
-  function backgroundLabel(): string {
-    if (!backgroundResult) return "Studio · original";
-    if (backgroundResult.type === "preset") {
-      return PRESET_BACKGROUNDS.find((p) => p.id === backgroundResult.value)?.name ?? "Preset scene";
-    }
-    if (backgroundResult.type === "solid") return `Solid ${backgroundResult.value.toUpperCase()}`;
-    return "Custom scene";
   }
 
   /* ----------------------------- Render ------------------------------ */
@@ -310,7 +232,8 @@ export function GenerateWizard({ userId }: { userId: string }) {
           Create your fashion shoot
         </h1>
         <p className="mx-auto mt-2 max-w-xl text-balance text-muted">
-          Upload a sari, generate a styled model, set the scene, and export advertisement-ready in 4K.
+          Upload a sari, describe the model, pose and scene, and export advertisement-ready in 4K —
+          all in a single generation.
         </p>
       </header>
 
@@ -322,22 +245,67 @@ export function GenerateWizard({ userId }: { userId: string }) {
             <section className="flex flex-col gap-6">
               <StepHeading
                 icon={ImageIcon}
-                kicker="Step 1 · Upload"
-                title="Upload your sari"
-                description="A clear, well-lit photo of the full garment works best. We never alter your original file."
+                kicker="Step 1 · Create"
+                title="Upload & describe your shoot"
+                description="Add a clear photo of the full garment, then describe the model, pose, scene and any props. The exact sari is preserved automatically."
               />
+
               <ImageUploadZone onFileSelected={setFile} disabled={uploading} />
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="shoot-prompt">Describe your shoot</Label>
+                <Textarea
+                  id="shoot-prompt"
+                  value={prompt}
+                  disabled={uploading}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Describe the model, drape, pose, background scene and any props…"
+                  className="min-h-44"
+                />
+                <p className="text-xs text-muted">
+                  Tweak anything — the model&apos;s look, the pose, the lighting, the backdrop. Your
+                  uploaded sari is worn exactly as-is.
+                </p>
+
+                <div className="mt-1 flex flex-col gap-2">
+                  <span className="text-xs font-medium text-muted">Quick scenes — tap to add</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRESET_BACKGROUNDS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        disabled={uploading}
+                        onClick={() => addScene(preset.prompt)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-foreground transition-colors",
+                          "hover:border-accent hover:text-accent-strong",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                          "disabled:cursor-not-allowed disabled:opacity-50",
+                        )}
+                      >
+                        <span
+                          className="size-3 rounded-full border border-border"
+                          style={{ backgroundImage: preset.gradient }}
+                          aria-hidden
+                        />
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
                 <Button
                   variant="primary"
                   size="lg"
-                  disabled={!file}
+                  disabled={!file || !prompt.trim()}
                   loading={uploading}
                   onClick={startUploadAndGenerate}
                   className="sm:min-w-52"
                 >
                   {!uploading && <Wand2 className="size-4" aria-hidden />}
-                  {uploading ? "Uploading…" : "Generate model"}
+                  {uploading ? "Uploading…" : "Generate shoot"}
                 </Button>
               </div>
             </section>
@@ -347,47 +315,26 @@ export function GenerateWizard({ userId }: { userId: string }) {
             <section className="flex flex-col gap-6">
               <StepHeading
                 icon={Sparkles}
-                kicker="Step 2 · Generate"
-                title="Generating your model"
-                description="Our AI is draping your sari on a studio model with editorial lighting."
+                kicker="Step 2 · Result"
+                title="Your generated shoot"
+                description="Our AI is dressing a studio model in your exact sari with editorial lighting."
               />
 
               {generating && (
                 <GenerationProgress
                   steps={GENERATION_PROGRESS_STEPS}
-                  note="This usually takes 20–40 seconds…"
+                  note="This usually takes 20–60 seconds…"
                 />
               )}
 
-              {!generating && limitReached && (
-                <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-xl border border-border bg-surface-2 p-8 text-center">
-                  <span className="inline-flex size-14 items-center justify-center rounded-full bg-accent/15 text-accent-strong">
-                    <CalendarClock className="size-7" aria-hidden />
-                  </span>
-                  <div>
-                    <h3 className="font-display text-xl font-semibold">You've hit today's limit</h3>
-                    <p className="mt-1.5 text-sm text-muted">
-                      You've used all {DAILY_GENERATION_LIMIT} generations for today. Your limit resets
-                      at midnight — this attempt won't be counted.
-                    </p>
-                  </div>
-                  <Link href="/dashboard" className={cn(buttonVariants({ variant: "primary" }))}>
-                    Back to dashboard
-                  </Link>
-                </div>
-              )}
-
-              {!generating && !limitReached && genError && (
+              {!generating && genError && (
                 <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
                   <span className="inline-flex size-14 items-center justify-center rounded-full bg-destructive/15 text-destructive">
                     <AlertTriangle className="size-7" aria-hidden />
                   </span>
                   <div>
-                    <h3 className="font-display text-xl font-semibold">That render didn't go through</h3>
+                    <h3 className="font-display text-xl font-semibold">That render didn&apos;t go through</h3>
                     <p className="mt-1.5 text-sm text-muted">{genError}</p>
-                    <p className="mt-1 text-xs text-muted">
-                      Don't worry — a failed attempt doesn't count against your daily limit.
-                    </p>
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button variant="primary" onClick={regenerate}>
@@ -395,13 +342,13 @@ export function GenerateWizard({ userId }: { userId: string }) {
                       Try again
                     </Button>
                     <Button variant="ghost" onClick={resetWizard}>
-                      Choose a different photo
+                      Start over
                     </Button>
                   </div>
                 </div>
               )}
 
-              {!generating && !limitReached && !genError && generatedImageUrl && (
+              {!generating && !genError && generatedImageUrl && (
                 <div className="flex flex-col gap-6">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <ResultFrame
@@ -411,7 +358,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
                       fit="contain"
                     />
                     <ResultFrame
-                      label="Generated model"
+                      label="Generated shoot"
                       src={generatedImageUrl}
                       alt="AI-generated model wearing the sari"
                       fit="cover"
@@ -419,14 +366,20 @@ export function GenerateWizard({ userId }: { userId: string }) {
                     />
                   </div>
                   <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Button variant="ghost" onClick={regenerate}>
-                      <RotateCcw className="size-4" aria-hidden />
-                      Regenerate
+                    <Button variant="ghost" onClick={() => setStep(1)}>
+                      <ArrowLeft className="size-4" aria-hidden />
+                      Edit prompt
                     </Button>
-                    <Button variant="primary" size="lg" onClick={() => setStep(3)}>
-                      Continue to background
-                      <ArrowRight className="size-4" aria-hidden />
-                    </Button>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button variant="outline" onClick={regenerate}>
+                        <RotateCcw className="size-4" aria-hidden />
+                        Regenerate
+                      </Button>
+                      <Button variant="primary" size="lg" onClick={() => setStep(3)}>
+                        Continue to export
+                        <ArrowRight className="size-4" aria-hidden />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -436,65 +389,8 @@ export function GenerateWizard({ userId }: { userId: string }) {
           {step === 3 && (
             <section className="flex flex-col gap-6">
               <StepHeading
-                icon={ImageIcon}
-                kicker="Step 3 · Background"
-                title="Set the scene"
-                description="Choose a backdrop, describe your own, or pick a solid colour. Your model and sari stay untouched."
-              />
-
-              {applyingBg ? (
-                <GenerationProgress
-                  steps={BACKGROUND_PROGRESS_STEPS}
-                  note="Recomposing your scene seamlessly…"
-                />
-              ) : (
-                <>
-                  <BackgroundPicker value={bgSelection} onChange={setBgSelection} />
-
-                  {backgroundResult && generatedImageUrl && (
-                    <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface-2 p-4">
-                      <Badge variant="success">Background applied</Badge>
-                      <ComparisonSlider
-                        before={generatedImageUrl}
-                        after={backgroundResult.url}
-                        beforeLabel="Studio"
-                        afterLabel="New scene"
-                      />
-                      <p className="text-xs text-muted">Drag the handle or use arrow keys to compare.</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Button variant="ghost" onClick={() => setStep(2)}>
-                      <ArrowLeft className="size-4" aria-hidden />
-                      Back
-                    </Button>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <Button variant="outline" onClick={skipBackground}>
-                        Skip — keep studio
-                      </Button>
-                      <Button variant="secondary" disabled={!bgValid} onClick={applyBackground}>
-                        <Wand2 className="size-4" aria-hidden />
-                        {backgroundResult ? "Re-apply background" : "Apply background"}
-                      </Button>
-                      {backgroundResult && (
-                        <Button variant="primary" size="lg" onClick={continueToExport}>
-                          Continue to export
-                          <ArrowRight className="size-4" aria-hidden />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </section>
-          )}
-
-          {step === 4 && (
-            <section className="flex flex-col gap-6">
-              <StepHeading
                 icon={Download}
-                kicker="Step 4 · Export"
+                kicker="Step 3 · Export"
                 title="Download your shoot"
                 description="Pick a resolution and export a crisp PNG, ready for ads, catalogues or social."
               />
@@ -502,9 +398,9 @@ export function GenerateWizard({ userId }: { userId: string }) {
               <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_1fr] lg:items-start">
                 <div className="flex flex-col gap-3">
                   <div className="relative mx-auto aspect-[3/4] w-full max-w-xs overflow-hidden rounded-2xl border border-border bg-surface-2 shadow-soft">
-                    {finalImageUrl && (
+                    {generatedImageUrl && (
                       <Image
-                        src={finalImageUrl}
+                        src={generatedImageUrl}
                         alt="Final fashion shoot"
                         fill
                         sizes="(max-width: 1024px) 80vw, 320px"
@@ -513,7 +409,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-2">
-                    <Badge variant="accent">{backgroundLabel()}</Badge>
+                    <Badge variant="accent">4K master</Badge>
                     <Badge variant="outline">
                       {resolution.width}×{resolution.height}
                     </Badge>
@@ -541,7 +437,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
                       </Button>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <Button variant="ghost" onClick={() => setStep(3)}>
+                      <Button variant="ghost" onClick={() => setStep(2)}>
                         <ArrowLeft className="size-4" aria-hidden />
                         Back
                       </Button>

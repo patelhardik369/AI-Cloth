@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { LayoutDashboard, Sparkles, LogOut, Plus } from "lucide-react";
+import { LayoutDashboard, LogOut, Plus } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { signOut } from "@/app/(auth)/actions";
 import { cn } from "@/lib/utils";
-import type { UsageStats } from "@/types";
 
-export function AppHeader({ email, usage }: { email: string; usage: UsageStats }) {
+export function AppHeader({ email }: { email: string }) {
   const initial = (email?.[0] || "U").toUpperCase();
 
   return (
@@ -27,15 +26,6 @@ export function AppHeader({ email, usage }: { email: string; usage: UsageStats }
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Usage pill */}
-          <span
-            className="hidden items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent-strong sm:inline-flex"
-            title={`${usage.remaining} of ${usage.limit} generations left today`}
-          >
-            <Sparkles className="size-3.5" />
-            {usage.remaining}/{usage.limit} left today
-          </span>
-
           <Link
             href="/generate"
             className={cn(buttonVariants({ variant: "primary", size: "sm" }), "gap-1.5")}
@@ -55,11 +45,6 @@ export function AppHeader({ email, usage }: { email: string; usage: UsageStats }
               <div className="border-b border-border px-4 py-3">
                 <p className="text-xs text-muted">Signed in as</p>
                 <p className="truncate text-sm font-medium text-foreground">{email}</p>
-              </div>
-              <div className="p-2 sm:hidden">
-                <p className="px-2 py-1 text-xs text-muted">
-                  {usage.remaining}/{usage.limit} generations left today
-                </p>
               </div>
               <form action={signOut} className="p-2">
                 <button

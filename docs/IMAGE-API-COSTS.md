@@ -1,91 +1,94 @@
 # Sari AI — Image Generation API Cost Breakdown
 
-_Prepared 26 June 2026. Figures are public list prices from OpenRouter / Google as of
-June 2026. These are "preview" models and prices can change; treat this as a close
-estimate, not a contract. INR figures assume **₹86 = $1** — adjust to the live rate._
+_Updated 26 June 2026. The app now generates through **FASHN Product-to-Model**
+(`api.fashn.ai`). Figures are FASHN's public list prices as of June 2026; treat as a
+close estimate, not a contract. INR figures assume **₹86 = $1** — adjust to the live
+rate._
 
 ---
 
 ## TL;DR (the numbers your client will ask for)
 
-| What | Primary engine (Nano Banana Pro) | Economy engine (Nano Banana 2) |
-|---|---|---|
-| **One advertisement-ready 4K image** | **≈ $0.24** (≈ ₹21) | **≈ $0.15** (≈ ₹13) |
-| **One full "shoot"** (model + 1 background swap = 2 images) | **≈ $0.48** (≈ ₹41) | **≈ $0.30** (≈ ₹26) |
-| Final high-res download / resize | **Free** (done on our server) | **Free** |
+| What | Cost |
+|---|---|
+| **One advertisement-ready 4K image** (default "Fast" mode) | **≈ $0.225** (≈ ₹19) |
+| Same image with credit top-ups (20–35% off) | **≈ $0.15–0.18** (≈ ₹13–16) |
+| **One full shoot** | **= one image** (single-pass; see below) |
+| Final high-res download / resize | **Free** (done on our server) |
 
-> The cost is driven almost entirely by the **generated image**. The text prompt plus
-> the customer's uploaded sari photo together cost **under $0.01** per call — effectively
-> a rounding error.
+> Two things changed the economics vs the earlier estimate:
+> 1. **Exact garment.** FASHN warps the *actual* uploaded sari onto the model, so the
+>    print, border and colour are preserved — no more "the model is wearing a different
+>    cloth." This was the main bug we fixed.
+> 2. **Single pass.** Model, pose, background and props are produced in **one** call.
+>    The old flow generated twice (model + background ≈ $0.48). One call ≈ halves that.
 
 ---
 
 ## 1. Which AI engine the app uses
 
-The app generates images through **OpenRouter**, which gives us one API plus an automatic
-fallback if the top model is busy.
-
-| Role | Model | OpenRouter slug |
+| Role | Model | Endpoint |
 |---|---|---|
-| **Primary** (best quality) | Google **Nano Banana Pro** (Gemini 3 Pro Image) | `google/gemini-3-pro-image-preview` |
-| **Fallback / economy** | Google **Nano Banana 2** (Gemini 3.1 Flash Image) | `google/gemini-3.1-flash-image-preview` |
+| **Generation** | FASHN **Product-to-Model** | `POST https://api.fashn.ai/v1/run` |
 
-Both are billed **per generated image**, and the price depends on the **output
-resolution**. The app is currently set to render at **4K** for advertisement quality.
+Billed **per generated image** in *credits*; the credit count depends on the **quality
+mode** and **resolution**. The app renders at **4K** in **"Fast"** mode by default.
 
 ---
 
-## 2. Price per image, by resolution
+## 2. Price per 4K image, by mode
 
-| Output resolution | Nano Banana Pro (primary) | Nano Banana 2 (economy) |
-|---|---|---|
-| 2K (≈ 4 MP) | $0.134 (≈ ₹12) | $0.101 (≈ ₹9) |
-| **4K (≈ 12–16 MP) — app default** | **$0.24 (≈ ₹21)** | **$0.151 (≈ ₹13)** |
+FASHN credits are **$0.075 each** on-demand, with volume top-up discounts.
 
-_Plus the per-call input (prompt + reference photo): a few thousand tokens at
-$2 / 1M (Pro) or $0.50 / 1M (economy) = **< $0.01**, so it does not change the totals._
+| 4K mode | Credits | On-demand | Tier II (−20%) | Tier III (−35%) |
+|---|---|---|---|---|
+| **Fast — app default** | 3 | **$0.225** (₹19) | $0.18 (₹15) | $0.146 (₹13) |
+| Balanced | 4 | $0.30 (₹26) | $0.24 (₹21) | $0.195 (₹17) |
+| Quality | 5 | $0.375 (₹32) | $0.30 (₹26) | $0.244 (₹21) |
+
+_(Lower resolutions are cheaper still: 2K Fast = 2 credits = $0.15; 1K Fast = 1 credit
+= $0.075. The app uses 4K for advertisement quality.)_
+
+Optional add-on: a **face-identity reference** is +3 credits per image (only if used).
 
 ---
 
 ## 3. What one "shoot" actually costs in the app
 
-A complete shoot in the wizard can make **up to two** image-generation calls:
+A complete shoot is now **a single image-generation call** that already includes the
+background and scene:
 
-1. **Generate model wearing the sari** — 1 image (always).
-2. **Swap the background** — 1 image (optional; the user can skip and keep the studio shot).
-3. **Download at any resolution** — **free**; resizing is done on our own server with
+1. **Generate model wearing the exact sari + chosen scene** — 1 image (always).
+2. **Download at any resolution** — **free**; resizing is done on our own server with
    `sharp`, no API call.
 
-| Scenario | Images generated | Primary cost | Economy cost |
+| Scenario | Images generated | Cost (Fast) | Cost (Balanced) |
 |---|---|---|---|
-| Model only (no background change) | 1 | $0.24 | $0.15 |
-| **Full shoot (model + 1 background)** | 2 | **$0.48** | **$0.30** |
-| Each extra retry / regenerate / re-background | +1 | +$0.24 | +$0.15 |
+| **One finished shoot** | 1 | **$0.225** | $0.30 |
+| Each extra regenerate (new look/seed) | +1 | +$0.225 | +$0.30 |
 
-A built-in **daily cap of 10 generations per user** bounds the worst case to about
-**$2.40–$4.80 per user per day** (primary engine).
+There is **no daily cap** in the app — spend scales directly with how many images you
+generate.
 
 ---
 
-## 4. Volume projections (4K, primary engine unless noted)
+## 4. Volume projections (4K Fast, on-demand unless noted)
 
-| Monthly volume | Model-only (1 image each) | Full shoots (2 images each) | Full shoots on economy engine |
-|---|---|---|---|
-| 100 | $24 (≈ ₹2,100) | $48 (≈ ₹4,100) | $30 (≈ ₹2,600) |
-| 1,000 | $240 (≈ ₹20,600) | $480 (≈ ₹41,300) | $300 (≈ ₹25,800) |
-| 10,000 | $2,400 (≈ ₹2.06 L) | $4,800 (≈ ₹4.13 L) | $3,000 (≈ ₹2.58 L) |
+| Monthly shoots | On-demand | With Tier II top-ups |
+|---|---|---|
+| 100 | $22.50 (≈ ₹1,900) | $18 (≈ ₹1,550) |
+| 1,000 | $225 (≈ ₹19,400) | $180 (≈ ₹15,500) |
+| 10,000 | $2,250 (≈ ₹1.94 L) | $1,800 (≈ ₹1.55 L) |
 
 ---
 
 ## 5. Levers to reduce cost (if the client wants)
 
-- **Render at 2K instead of 4K** → ~**45% cheaper** ($0.134 vs $0.24) and still
-  print-sharp for web, catalogue and social.
-- **Default to the economy engine** (Nano Banana 2) → ~**37% cheaper** per image, very
-  close quality for most garments; keep Pro for hero/campaign shots.
-- **Batch mode** (Google's async batch API) is ~**50% cheaper**, suitable for bulk
-  catalogue jobs where instant results aren't required.
-- The **daily cap** already prevents runaway spend; it can be tuned per plan/tier.
+- **Stay on "Fast" 4K** (the default) — cheapest 4K, exact garment preserved.
+- **Buy credits in bulk** — top-up tiers cut 10–35% off the per-image price.
+- **Render at 2K** for web/social/catalogue where 4K isn't required → roughly a third
+  cheaper again.
+- **Avoid needless regenerates** — each one is a fresh paid image.
 
 ---
 
@@ -94,26 +97,20 @@ A built-in **daily cap of 10 generations per user** bounds the worst case to abo
 | Item | Rough cost |
 |---|---|
 | Image storage + CDN (Supabase) | A few MB per image → pennies per GB stored/served |
-| OpenRouter credit top-up fee | ~5% one-time fee when adding credit (card) |
 | App hosting (Vercel + Supabase) | Separate, modest monthly tiers |
-
-OpenRouter charges the **same per-image price as Google's direct API** (it's pass-through);
-it simply adds the unified API and automatic fallback. We can also **log the exact cost
-OpenRouter returns on every call** for precise, per-customer billing if needed.
 
 ---
 
 ## 7. Caveats to mention to the client
 
-- These are **preview-model list prices (June 2026)** and may change.
-- Exact cost varies slightly with prompt length, the customer's photo size, and the final
-  pixel count of the chosen aspect ratio.
+- These are **list prices (June 2026)** and may change.
+- Exact cost depends on the chosen **mode** (Fast/Balanced/Quality) and **resolution**.
+- Sari **draping** is AI-generated even though the fabric is preserved; complex drapes
+  may need a prompt tweak — validate with the client's real saris.
 - INR is converted at an **assumed ₹86/$** — use the live rate for quotes.
 
 ---
 
 ### Sources
-- OpenRouter — Nano Banana Pro: https://openrouter.ai/google/gemini-3-pro-image-preview
-- OpenRouter — Nano Banana 2: https://openrouter.ai/google/gemini-3.1-flash-image-preview
-- Google Gemini API pricing: https://ai.google.dev/gemini-api/docs/pricing
-- Per-image / per-resolution breakdowns: pricepertoken.com and laozhang.ai pricing guides (June 2026)
+- FASHN Product-to-Model API: https://docs.fashn.ai/api-reference/product-to-model
+- FASHN API pricing: https://help.fashn.ai/plans-and-pricing/api-pricing

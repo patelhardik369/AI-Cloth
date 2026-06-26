@@ -1,23 +1,23 @@
-import type { BackgroundPreset, BackgroundType, ResolutionPreset } from "@/types";
+import type { BackgroundPreset, ResolutionPreset } from "@/types";
 
-/* ----------------------------- Models ----------------------------- */
-// Verified OpenRouter slugs (Nov 2025+). Primary = Nano Banana Pro.
-export const PRIMARY_MODEL = "google/gemini-3-pro-image-preview"; // Nano Banana Pro (Gemini 3 Pro Image)
-export const FALLBACK_MODEL = "google/gemini-3.1-flash-image-preview"; // Nano Banana 2 (cheaper retries)
+/* --------------------------- FASHN engine ------------------------- */
+// We use FASHN's own Product-to-Model API (api.fashn.ai). It warps the
+// actual garment pixels onto a generated model — preserving the exact sari —
+// and renders native 4K in a single call that also handles pose/scene.
+export const FASHN_MODEL_NAME = "product-to-model";
+export const FASHN_MODEL_USED = "fashn/product-to-model"; // stored in generations.model_used
+export const FASHN_RESOLUTION = "4k" as const; // "1k" | "2k" | "4k" (4k ≈ 16 MP)
+export const FASHN_GENERATION_MODE = "fast" as const; // "fast" | "balanced" | "quality"
+export const FASHN_ASPECT_RATIO = "3:4" as const; // portrait, full-body fashion
+export const FASHN_POLL_INTERVAL_MS = 2000;
+export const FASHN_POLL_TIMEOUT_MS = 110_000; // stay under the route's maxDuration=120
 
-/* --------------------------- Limits ------------------------------- */
-export const DAILY_GENERATION_LIMIT = 10;
+/* ----------------------------- Upload ----------------------------- */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const ACCEPTED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"] as const;
 export const MIN_EXPORT_DIMENSION = 256;
 export const MAX_EXPORT_DIMENSION = 8192;
-
-/* ----------------------- Render settings -------------------------- */
-// We always render a high-res portrait master; `sharp` downscales to the
-// user's chosen export size for crisp, advertisement-ready output.
-export const GENERATION_RESOLUTION = "4K" as const;
-export const GENERATION_ASPECT_RATIO = "3:4" as const; // portrait, full-body fashion
 
 /* --------------------------- Storage ------------------------------ */
 export const STORAGE_BUCKETS = {
@@ -113,61 +113,18 @@ export const GENERATION_PROGRESS_STEPS = [
   "Finalizing your 4K image…",
 ] as const;
 
-export const BACKGROUND_PROGRESS_STEPS = [
-  "Isolating the model and sari…",
-  "Composing the new scene…",
-  "Matching light & color temperature…",
-  "Blending edges seamlessly…",
-  "Finalizing your image…",
-] as const;
-
 /* ----------------------- Prompt engineering ----------------------- */
 
 /**
- * Master prompt for turning a sari reference into a styled fashion-model
- * photo. Garment fidelity is stated first and most emphatically because
- * identity/garment preservation is the hardest part for image models.
+ * Default styling prompt for FASHN Product-to-Model. The uploaded sari (the
+ * `product_image`) is preserved by the model itself — the prompt steers the
+ * model's appearance, drape, pose and scene. It seeds an editable textarea in
+ * the wizard, so users can tweak the look, pose, background and props freely.
  */
-export function buildGenerationPrompt(): string {
-  return [
-    "A professional Indian female fashion model wearing the exact traditional sari shown in the reference image.",
-    "GARMENT FIDELITY (most important): reproduce the sari with complete accuracy — identical color, print, motifs, weave, embroidery, zari border and pallu pattern as the reference. Do not redesign, restyle, recolor or simplify the fabric; preserve its drape and texture faithfully.",
-    "Drape the sari elegantly in a classic Nivi style with the pallu falling gracefully over the shoulder, revealing the full length and decorative border, paired with a matching fitted blouse.",
-    "Pose: a poised, confident full-body shot — the model standing gracefully so the complete drape and pallu are visible from head to toe.",
-    "Model: an elegant Indian woman with natural, realistic skin texture, tasteful minimal jewellery, neat hair styling and a warm confident expression.",
-    "Setting: a clean, seamless light studio backdrop with soft, diffused three-point lighting and gentle natural shadows.",
-    "Photography: high-end editorial fashion photography, shot on an 85mm lens at f/4, professional color grading and skin retouching, ultra-sharp focus so the fabric weave and embroidery read crisply.",
-    "Output: advertisement-quality, photorealistic, ultra-detailed, native 4K resolution, vertical full-body composition.",
-  ].join("\n");
-}
-
-/** Resolve the human/scene description for a chosen background. */
-export function resolveBackgroundScene(type: BackgroundType, value: string): string {
-  if (type === "preset") {
-    const preset = PRESET_BACKGROUNDS.find((p) => p.id === value || p.name === value);
-    return preset?.prompt ?? value;
-  }
-  if (type === "solid") {
-    return `a seamless, evenly-lit solid ${value} colored studio backdrop with no texture or gradient`;
-  }
-  // custom
-  return value;
-}
-
-/**
- * Background-replacement prompt. Subject preservation is stated emphatically
- * and edge-relighting is requested so the composite never looks cut-out.
- */
-export function buildBackgroundPrompt(
-  type: BackgroundType,
-  value: string,
-): { prompt: string; scene: string } {
-  const scene = resolveBackgroundScene(type, value);
-  const prompt = [
-    `Replace ONLY the background of this image with: ${scene}.`,
-    "Keep the model's face, body, pose, hair, skin tone, jewellery and the sari (its color, print, drape, border and fabric texture) exactly as they are — do not alter the subject in any way.",
-    "Relight the subject's edges subtly to match the new scene's light direction and color temperature so the composite looks seamless and natural, with no halo, fringing or cut-out look.",
-    "Photorealistic, advertisement quality, sharp focus, consistent perspective and depth of field.",
-  ].join("\n");
-  return { prompt, scene };
-}
+export const DEFAULT_GENERATION_PROMPT = [
+  "An elegant Indian female fashion model wearing the uploaded sari, draped in a classic Nivi style with the pallu falling gracefully over the shoulder so the decorative border is on show, paired with a matching fitted blouse.",
+  "Full-body editorial pose: standing gracefully so the complete drape and pallu are visible from head to toe.",
+  "Natural realistic skin texture, tasteful minimal jewellery, neat hair styling and a warm confident expression.",
+  "Setting: a clean, seamless light studio backdrop with soft, diffused three-point lighting and gentle natural shadows.",
+  "High-end fashion photography, 85mm lens, professional colour grading, ultra-sharp focus so the fabric weave and embroidery read crisply. Advertisement-quality, photorealistic, ultra-detailed.",
+].join("\n");

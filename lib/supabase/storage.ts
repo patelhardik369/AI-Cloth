@@ -29,21 +29,26 @@ export async function uploadSariImage(
 }
 
 /**
- * Upload a base64 image (from the OpenRouter response, server-side admin
- * client) and return its public URL.
- * Path: generated-outputs/{userId}/{prefix}-{uuid}.{ext}
+ * Download a generated image from a (FASHN CDN) URL and re-upload it to our
+ * Storage as the permanent source of truth. Returns its public URL.
+ * Path: generated-outputs/{userId}/{prefix}-{uuid}.png
  */
-export async function uploadGeneratedImage(
+export async function uploadGeneratedImageFromUrl(
   supabase: DB,
-  base64: string,
+  sourceUrl: string,
   userId: string,
-  opts: { mimeType?: string; prefix?: string } = {},
+  opts: { prefix?: string } = {},
 ): Promise<string> {
-  const mimeType = opts.mimeType || "image/png";
+  const resp = await fetch(sourceUrl);
+  if (!resp.ok) {
+    throw new Error(`Could not fetch the generated image (${resp.status})`);
+  }
+  const contentType = resp.headers.get("content-type") || "image/png";
+  const mimeType = contentType.split(";")[0].trim() || "image/png";
   const ext = mimeType.split("/")[1] || "png";
   const prefix = opts.prefix || "model";
   const path = `${userId}/${prefix}-${shortId()}.${ext}`;
-  const buffer = Buffer.from(base64, "base64");
+  const buffer = Buffer.from(await resp.arrayBuffer());
   const { error } = await supabase.storage
     .from(STORAGE_BUCKETS.generated)
     .upload(path, buffer, { contentType: mimeType, upsert: false });

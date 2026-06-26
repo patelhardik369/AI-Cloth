@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
-import { getAuthenticatedUser, getDailyUsage } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { DashboardStats } from "@/components/dashboard-stats";
@@ -27,7 +27,6 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false });
 
   const generations: Generation[] = data ?? [];
-  const usage = await getDailyUsage(user.id);
   const totalGenerations = generations.length;
 
   return (
@@ -55,9 +54,9 @@ export default async function DashboardPage() {
         </Link>
       </header>
 
-      {/* Usage & totals */}
+      {/* Totals */}
       <div className="mt-8">
-        <DashboardStats usage={usage} totalGenerations={totalGenerations} />
+        <DashboardStats totalGenerations={totalGenerations} />
       </div>
 
       {/* Recent shoots */}

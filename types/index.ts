@@ -39,26 +39,14 @@ export interface Generation {
 
 /* ----------------------------- API I/O ---------------------------- */
 
-/** POST /api/generate */
+/** POST /api/generate — single-pass: prompt carries pose/scene/props. */
 export interface GenerateRequest {
   generationId: string;
   sariImageUrl: string;
+  prompt: string;
 }
 export interface GenerateResponse {
   generatedImageUrl: string;
-  generation: Generation;
-}
-
-/** POST /api/background */
-export interface BackgroundRequest {
-  generationId: string;
-  modelImageUrl: string;
-  backgroundType: BackgroundType;
-  /** preset id, custom description, or hex color */
-  backgroundValue: string;
-}
-export interface BackgroundResponse {
-  backgroundImageUrl: string;
   generation: Generation;
 }
 
@@ -95,14 +83,6 @@ export interface ResolutionPreset {
   width: number;
   height: number;
   description: string;
-}
-
-/** Daily usage snapshot shown on the dashboard. */
-export interface UsageStats {
-  used: number;
-  limit: number;
-  remaining: number;
-  resetsAt: string;
 }
 
 /* ---------------------- Supabase typed schema --------------------- */

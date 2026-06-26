@@ -1,20 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  getAuthenticatedUser,
-  countTodayUsage,
-  nextMidnight,
-} from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { uploadGeneratedImage } from "@/lib/supabase/storage";
-import { generateFashionModel } from "@/lib/openrouter";
-import { DAILY_GENERATION_LIMIT } from "@/lib/constants";
+import { uploadGeneratedImageFromUrl } from "@/lib/supabase/storage";
+import { generateFashionModel } from "@/lib/fashn";
 import type {
   ApiError,
   GenerateRequest,
   GenerateResponse,
   Generation,
-  Profile,
 } from "@/types";
 
 // sharp + Buffer + the service-role admin client all require the Node runtime.
@@ -41,9 +35,16 @@ export async function POST(req: NextRequest) {
     typeof body.generationId === "string" ? body.generationId.trim() : "";
   const sariImageUrl =
     typeof body.sariImageUrl === "string" ? body.sariImageUrl.trim() : "";
+  const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
   if (!generationId || !sariImageUrl) {
     return NextResponse.json<ApiError>(
       { error: "generationId and sariImageUrl are required" },
+      { status: 400 },
+    );
+  }
+  if (!prompt) {
+    return NextResponse.json<ApiError>(
+      { error: "A prompt is required to generate the shoot" },
       { status: 400 },
     );
   }
@@ -69,40 +70,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json<ApiError>({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 4. Enforce the daily generation limit.
-  const used = await countTodayUsage(user.id);
-  if (used >= DAILY_GENERATION_LIMIT) {
-    // `resetsAt` is a useful extra field layered on top of the ApiError shape.
-    return NextResponse.json(
-      { error: "Daily limit reached", code: "rate_limited", resetsAt: nextMidnight() },
-      { status: 429 },
-    );
-  }
-
-  // 5. Mark the row as in-flight (best-effort; the model call proceeds regardless).
+  // 4. Mark the row as in-flight (best-effort; the model call proceeds regardless).
   await db
     .from("generations")
     .update({ status: "generating" } satisfies Partial<Generation>)
     .eq("id", generationId);
 
-  // 6. Generate -> upload -> persist.
+  // 5. Generate (single FASHN call) -> re-upload the CDN result -> persist.
   try {
-    const img = await generateFashionModel(sariImageUrl);
+    const result = await generateFashionModel(sariImageUrl, prompt);
 
-    const generatedImageUrl = await uploadGeneratedImage(
+    const generatedImageUrl = await uploadGeneratedImageFromUrl(
       admin,
-      img.base64,
+      result.outputUrl,
       user.id,
-      { mimeType: img.mimeType, prefix: "model" },
+      { prefix: "model" },
     );
 
     const { data: saved, error: updateError } = await db
       .from("generations")
       .update({
         generated_image_url: generatedImageUrl,
+        // Single-pass: the generated model image is the final image.
         final_image_url: generatedImageUrl,
-        model_used: img.model,
-        prompt_used: img.prompt,
+        model_used: result.model,
+        prompt_used: result.prompt,
         status: "completed",
         error_message: null,
       } satisfies Partial<Generation>)
@@ -112,26 +104,6 @@ export async function POST(req: NextRequest) {
     const updated = (saved ?? null) as Generation | null;
     if (updateError || !updated) {
       throw new Error(updateError?.message || "Failed to persist the generated image");
-    }
-
-    // 7. Increment the lifetime usage counter (best-effort — never fails the request).
-    try {
-      const { data: profileRow, error: profileError } = await db
-        .from("profiles")
-        .select("generation_count")
-        .eq("id", user.id)
-        .single();
-      const profile = (profileRow ?? null) as Pick<Profile, "generation_count"> | null;
-      if (!profileError && profile) {
-        await db
-          .from("profiles")
-          .update({
-            generation_count: (profile.generation_count ?? 0) + 1,
-          } satisfies Partial<Profile>)
-          .eq("id", user.id);
-      }
-    } catch (usageErr) {
-      console.error("[api/generate] usage increment failed:", usageErr);
     }
 
     return NextResponse.json<GenerateResponse>(

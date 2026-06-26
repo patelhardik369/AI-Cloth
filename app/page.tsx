@@ -14,16 +14,12 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  DAILY_GENERATION_LIMIT,
-  PRESET_BACKGROUNDS,
-  RESOLUTION_PRESETS,
-} from "@/lib/constants";
+import { PRESET_BACKGROUNDS, RESOLUTION_PRESETS } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: { absolute: "Sari AI — Turn Any Sari Into a 4K AI Fashion Shoot" },
   description:
-    "Upload a sari and get an advertisement-ready AI fashion model wearing it. Swap backgrounds, tune the scene, and export in true 4K. 10 free generations every day.",
+    "Upload a sari and get an advertisement-ready AI fashion model wearing your exact garment. Describe the model, pose and scene, then export in true 4K — in a single generation.",
 };
 
 const FEATURES: { icon: LucideIcon; title: string; desc: string }[] = [
@@ -39,8 +35,8 @@ const FEATURES: { icon: LucideIcon; title: string; desc: string }[] = [
   },
   {
     icon: Wand2,
-    title: "Swap into any world",
-    desc: `Choose from ${PRESET_BACKGROUNDS.length} curated scenes — studio, palace, garden, rangoli — or describe your own.`,
+    title: "Set any scene",
+    desc: `Describe the pose, backdrop and props in one prompt — or tap one of ${PRESET_BACKGROUNDS.length} curated scenes. It all renders in a single pass.`,
   },
   {
     icon: Maximize,
@@ -71,16 +67,15 @@ const GALLERY: { src: string; title: string; tag: string; alt: string }[] = [
 ];
 
 const STEPS: { n: string; title: string; desc: string }[] = [
-  { n: "01", title: "Upload", desc: "Add your sari photo — we read its colour, motifs and border." },
-  { n: "02", title: "Generate", desc: "Our Nano Banana Pro engine renders a lifelike model wearing it." },
-  { n: "03", title: "Background", desc: "Pick a curated backdrop, or describe a scene of your own." },
-  { n: "04", title: "Export", desc: "Choose a resolution and download a campaign-ready image." },
+  { n: "01", title: "Upload & describe", desc: "Add your sari and describe the model, pose, scene and props." },
+  { n: "02", title: "Generate", desc: "One AI pass renders a lifelike model wearing your exact sari." },
+  { n: "03", title: "Export", desc: "Choose a resolution and download a campaign-ready 4K image." },
 ];
 
 const PRINT = RESOLUTION_PRESETS[RESOLUTION_PRESETS.length - 1];
 const PERKS: string[] = [
-  "Nano Banana Pro — native 4K rendering engine",
-  "One-click background replacement",
+  "FASHN engine — exact-garment fidelity in native 4K",
+  "Model, pose, scene and props in a single prompt",
   `Custom export resolutions up to ${PRINT.width}×${PRINT.height}`,
   "Instant download and shareable links",
 ];
@@ -125,8 +120,8 @@ export default function LandingPage() {
                 className="mt-6 max-w-xl text-base leading-relaxed text-bone-100/80 animate-fade-up sm:text-lg"
                 style={{ animationDelay: "120ms" }}
               >
-                Upload a sari and receive an advertisement-ready model wearing it — swap the
-                background, dial in the scene, and export in true 4K. No studio. No model. No shoot
+                Upload a sari and receive an advertisement-ready model wearing your exact garment —
+                describe the pose and scene, then export in true 4K. No studio. No model. No shoot
                 day.
               </p>
               <div
@@ -153,10 +148,10 @@ export default function LandingPage() {
               >
                 <span className="flex items-center gap-2">
                   <Check className="size-4 text-success" aria-hidden />
-                  {DAILY_GENERATION_LIMIT} free shoots daily
+                  Unlimited shoots
                 </span>
                 <span>True 4K export</span>
-                <span>No credit card</span>
+                <span>Exact garment fidelity</span>
               </div>
             </div>
           </div>
@@ -262,10 +257,10 @@ export default function LandingPage() {
             <div className="max-w-2xl">
               <span className="kicker">The process</span>
               <h2 className="mt-5 text-balance font-display text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.05] tracking-tight">
-                Four steps to a finished shoot.
+                Three steps to a finished shoot.
               </h2>
             </div>
-            <ol className="mt-14 grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+            <ol className="mt-14 grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3 lg:grid-cols-3">
               {STEPS.map((s) => (
                 <li key={s.n} className="bg-background p-7">
                   <span className="font-display text-4xl tabular text-foreground/15">{s.n}</span>
@@ -323,11 +318,11 @@ export default function LandingPage() {
           <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:px-8 lg:py-28">
             <span className="kicker">Pricing</span>
             <h2 className="mt-5 text-balance font-display text-[clamp(2rem,4vw,3.25rem)] leading-[1.04] tracking-tight">
-              Ten shoots a day, <span className="accent-italic">on the house.</span>
+              Unlimited shoots, <span className="accent-italic">one flat price.</span>
             </h2>
             <p className="mx-auto mt-5 max-w-xl leading-relaxed text-muted">
-              Generous daily usage that resets every morning. No credit card, no commitment — upgrade
-              only once you grow.
+              No per-day caps and no per-image surprises — generate as many shoots as your campaign
+              needs. You only pay for the AI you actually use.
             </p>
             <div className="mx-auto mt-10 max-w-md divide-y divide-border border-y border-border text-left">
               {PERKS.map((p) => (
