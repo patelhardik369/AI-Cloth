@@ -41,7 +41,17 @@ export function SiteFooter() {
         </div>
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-sm text-muted sm:flex-row">
           <p>© {new Date().getFullYear()} Sari AI. All rights reserved.</p>
-          <p>Crafted for Indian fashion brands.</p>
+          <p>
+            Made by{" "}
+            <a
+              href="https://www.hardikpatel.site/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-accent-strong underline-offset-4 transition-colors hover:underline"
+            >
+              Hardik Patel
+            </a>
+          </p>
         </div>
       </div>
     </footer>
