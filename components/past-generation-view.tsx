@@ -14,8 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { cn, downloadBlob, formatDate } from "@/lib/utils";
-import type { ApiError, DownloadRequest, Generation, GenerationStatus } from "@/types";
+import { cn, downloadFromUrl, formatDate } from "@/lib/utils";
+import type { Generation, GenerationStatus } from "@/types";
 
 const STATUS_META: Record<GenerationStatus, { label: string; variant: BadgeProps["variant"] }> = {
   pending: { label: "Pending", variant: "outline" },
@@ -26,7 +26,6 @@ const STATUS_META: Record<GenerationStatus, { label: string; variant: BadgeProps
 
 export function PastGenerationView({ generation }: { generation: Generation }) {
   const { toast } = useToast();
-  const [downloading, setDownloading] = React.useState(false);
 
   const finalUrl =
     generation.final_image_url ??
@@ -34,41 +33,15 @@ export function PastGenerationView({ generation }: { generation: Generation }) {
     generation.generated_image_url;
   const status = STATUS_META[generation.status];
 
-  async function handleDownload() {
-    if (!finalUrl || downloading) return;
-    setDownloading(true);
-    try {
-      const res = await fetch("/api/download", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generationId: generation.id } satisfies DownloadRequest),
-      });
-      if (!res.ok) {
-        let message = "Download failed. Please try again.";
-        try {
-          const data = (await res.json()) as ApiError;
-          if (data?.error) message = data.error;
-        } catch {
-          /* keep fallback */
-        }
-        throw new Error(message);
-      }
-      const blob = await res.blob();
-      downloadBlob(blob, `sari-ai-${generation.id}.png`);
-      toast({
-        title: "Download started",
-        description: "Full-quality 4K image — ready to print.",
-        variant: "success",
-      });
-    } catch (e) {
-      toast({
-        title: "Download failed",
-        description: e instanceof Error ? e.message : "Please try again.",
-        variant: "error",
-      });
-    } finally {
-      setDownloading(false);
-    }
+  function handleDownload() {
+    if (!finalUrl) return;
+    // Direct CDN download — no server round-trip, starts instantly.
+    downloadFromUrl(finalUrl, `sari-ai-${generation.id}.png`);
+    toast({
+      title: "Download started",
+      description: "Full-quality 4K image — ready to print.",
+      variant: "success",
+    });
   }
 
   async function copyLink() {
@@ -150,12 +123,11 @@ export function PastGenerationView({ generation }: { generation: Generation }) {
           <div className="flex flex-col gap-2.5 border-t border-border pt-5">
             <Button
               variant="primary"
-              loading={downloading}
               disabled={!finalUrl}
               onClick={handleDownload}
             >
-              {!downloading && <Download className="size-4" aria-hidden />}
-              {downloading ? "Preparing…" : "Download"}
+              <Download className="size-4" aria-hidden />
+              Download 4K image
             </Button>
             <Button variant="outline" disabled={!finalUrl} onClick={copyLink}>
               <Copy className="size-4" aria-hidden />

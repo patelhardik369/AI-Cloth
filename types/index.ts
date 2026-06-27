@@ -50,11 +50,6 @@ export interface GenerateResponse {
   generation: Generation;
 }
 
-/** POST /api/download — streams the stored full-quality image (no JSON body). */
-export interface DownloadRequest {
-  generationId: string;
-}
-
 /** Uniform error envelope returned by every API route on failure. */
 export interface ApiError {
   error: string;

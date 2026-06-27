@@ -71,6 +71,22 @@ export function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Download a public (Supabase Storage) URL straight from the CDN — no server
+ * round-trip. The `?download=<name>` param makes Supabase serve the object with
+ * `Content-Disposition: attachment`, so the browser saves it instantly with our
+ * filename instead of proxying the whole 4K file through our app.
+ */
+export function downloadFromUrl(url: string, filename: string): void {
+  const sep = url.includes("?") ? "&" : "?";
+  const a = document.createElement("a");
+  a.href = `${url}${sep}download=${encodeURIComponent(filename)}`;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 /** A short pseudo-id for filenames when crypto.randomUUID is unavailable. */
 export function shortId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {

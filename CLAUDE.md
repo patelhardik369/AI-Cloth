@@ -46,8 +46,11 @@ advertisement-ready and 4K-capable.
    instructions), fetches the FASHN CDN result and re-uploads it to `generated-outputs/…`
    (service role), updates the row (`generated_image_url == final_image_url`) → returns
    our CDN URL. **No daily limit.** There is **no** separate background step.
-3. **Download (`/api/download`):** fetches the final image, `sharp.resize(w,h)`,
-   streams a PNG attachment; records the chosen resolution.
+3. **Download (client-side, no route):** the stored image is on Supabase's public CDN,
+   so the browser downloads it **directly** via `downloadFromUrl` (`lib/utils.ts`), which
+   appends `?download=<name>` so Supabase serves `Content-Disposition: attachment`. Always
+   the full-quality 4K master — no resizing, no server proxy. (There is **no**
+   `/api/download` route and `sharp` is no longer used.)
 
 ## Key conventions
 - **Supabase clients:** `lib/supabase/client.ts` (browser), `server.ts` (RLS, per
@@ -57,8 +60,8 @@ advertisement-ready and 4K-capable.
   helpers — the daily cap was removed.)
 - **Server actions:** `app/(auth)/actions.ts` → `signIn`, `signUp`, `signOut`.
 - **Types are the contract:** import shared types from `@/types`. API request/response
-  shapes live there (`GenerateRequest` — now carries `prompt`, `GenerateResponse`,
-  `DownloadRequest`). Don't redefine.
+  shapes live there (`GenerateRequest` — now carries `prompt`, `GenerateResponse`).
+  Don't redefine.
 - **Constants & prompt:** `lib/constants.ts` — `FASHN_*` settings, `PRESET_BACKGROUNDS`
   (also used as "quick scene" chips), `RESOLUTION_PRESETS`, and `DEFAULT_GENERATION_PROMPT`
   (seeds the editable prompt textarea in the wizard). Reuse it; don't inline prompts.

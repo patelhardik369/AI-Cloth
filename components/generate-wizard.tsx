@@ -33,13 +33,8 @@ import {
   GARMENT_FIDELITY_INSTRUCTION,
   MODEL_OPTIONS,
 } from "@/lib/constants";
-import { cn, downloadBlob } from "@/lib/utils";
-import type {
-  ApiError,
-  GenerateRequest,
-  GenerateResponse,
-  DownloadRequest,
-} from "@/types";
+import { cn, downloadFromUrl } from "@/lib/utils";
+import type { ApiError, GenerateRequest, GenerateResponse } from "@/types";
 
 type Step = 1 | 2 | 3;
 
@@ -79,7 +74,6 @@ export function GenerateWizard({ userId }: { userId: string }) {
   // Status flags
   const [uploading, setUploading] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
-  const [downloading, setDownloading] = React.useState(false);
   const [genError, setGenError] = React.useState<string | null>(null);
 
   /* ----------------------------- Actions ----------------------------- */
@@ -179,32 +173,15 @@ export function GenerateWizard({ userId }: { userId: string }) {
     return parts.join("\n");
   }
 
-  async function handleDownload() {
-    if (!generationId || !generatedImageUrl || downloading) return;
-    setDownloading(true);
-    try {
-      const res = await fetch("/api/download", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ generationId } satisfies DownloadRequest),
-      });
-
-      if (!res.ok) {
-        throw new Error(await readApiError(res, "Download failed. Please try again."));
-      }
-
-      const blob = await res.blob();
-      downloadBlob(blob, `sari-ai-${generationId}.png`);
-      toast({
-        title: "Download started",
-        description: "Full-quality 4K image — ready to print.",
-        variant: "success",
-      });
-    } catch (e) {
-      toast({ title: "Download failed", description: errorMessage(e), variant: "error" });
-    } finally {
-      setDownloading(false);
-    }
+  function handleDownload() {
+    if (!generatedImageUrl) return;
+    // Direct CDN download — no server round-trip, starts instantly.
+    downloadFromUrl(generatedImageUrl, `sari-ai-${generationId}.png`);
+    toast({
+      title: "Download started",
+      description: "Full-quality 4K image — ready to print.",
+      variant: "success",
+    });
   }
 
   async function copyLink() {
@@ -497,12 +474,11 @@ export function GenerateWizard({ userId }: { userId: string }) {
                       <Button
                         variant="primary"
                         size="lg"
-                        loading={downloading}
                         onClick={handleDownload}
                         className="flex-1"
                       >
-                        {!downloading && <Download className="size-4" aria-hidden />}
-                        {downloading ? "Preparing…" : "Download 4K image"}
+                        <Download className="size-4" aria-hidden />
+                        Download 4K image
                       </Button>
                       <Button variant="outline" size="lg" onClick={copyLink} className="sm:flex-none">
                         <Copy className="size-4" aria-hidden />
