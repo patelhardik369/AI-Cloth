@@ -1,27 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Download, Eye, ImageOff } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Spinner } from "@/components/ui/spinner";
 import { buttonVariants } from "@/components/ui/button";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import type { Generation, GenerationStatus } from "@/types";
+import type { Generation } from "@/types";
 
-const STATUS_META: Record<
-  GenerationStatus,
-  { label: string; variant: "success" | "warning" | "default" | "danger" }
-> = {
-  completed: { label: "Completed", variant: "success" },
-  generating: { label: "Generating", variant: "warning" },
-  pending: { label: "Pending", variant: "default" },
-  failed: { label: "Failed", variant: "danger" },
-};
-
-/** A single shoot in the dashboard grid. Server component. */
+/** A single finished shoot in the dashboard grid. Server component. */
 export function GenerationCard({ generation }: { generation: Generation }) {
   const imageUrl = generation.final_image_url ?? generation.generated_image_url;
-  const status = STATUS_META[generation.status];
 
   return (
     <Card className="group flex flex-col overflow-hidden animate-fade-up transition-shadow duration-300 hover:shadow-lift">
@@ -38,19 +25,9 @@ export function GenerationCard({ generation }: { generation: Generation }) {
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted">
             <ImageOff className="size-8" aria-hidden />
-            <span className="text-xs font-medium">
-              {generation.status === "failed" ? "Failed" : "Processing…"}
-            </span>
+            <span className="text-xs font-medium">No image</span>
           </div>
         )}
-
-        {/* Status badge */}
-        <div className="absolute left-3 top-3">
-          <Badge variant={status.variant} className="shadow-soft backdrop-blur-sm">
-            {generation.status === "generating" && <Spinner className="size-3 text-current" />}
-            {status.label}
-          </Badge>
-        </div>
 
         {/* Source garment thumbnail */}
         {generation.sari_image_url && (
@@ -74,13 +51,7 @@ export function GenerationCard({ generation }: { generation: Generation }) {
         <p className="text-sm font-medium text-foreground">
           {formatRelativeTime(generation.created_at)}
         </p>
-        <p className="text-xs text-muted">
-          {generation.status === "completed"
-            ? "Poster-ready 4K"
-            : generation.status === "failed"
-              ? "Generation failed"
-              : "Working on it…"}
-        </p>
+        <p className="text-xs text-muted">Poster-ready 4K</p>
       </CardContent>
 
       {/* Footer */}
