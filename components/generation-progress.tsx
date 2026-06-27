@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Sparkles } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 
 interface GenerationProgressProps {
@@ -11,9 +10,10 @@ interface GenerationProgressProps {
 }
 
 /**
- * Indeterminate, reassuring progress UI shown while the model renders.
- * Rotates through `steps` on a timer, shows a pulsing placeholder card and an
- * indeterminate bar. Motion is dampened globally under prefers-reduced-motion.
+ * Reassuring, indeterminate loading UI shown while the model renders. We don't
+ * get a real progress signal from the engine, so there is deliberately NO
+ * progress bar — just a pulsing placeholder card and rotating status text.
+ * Motion is dampened globally under prefers-reduced-motion.
  */
 export function GenerationProgress({ steps, note }: GenerationProgressProps) {
   const [index, setIndex] = React.useState(0);
@@ -36,10 +36,6 @@ export function GenerationProgress({ steps, note }: GenerationProgressProps) {
           </span>
           <span className="kicker text-[0.6rem]">Rendering</span>
         </div>
-      </div>
-
-      <div className="w-full">
-        <Progress indeterminate />
       </div>
 
       <div className="flex flex-col items-center gap-1.5 text-center" aria-live="polite" aria-atomic="true">
