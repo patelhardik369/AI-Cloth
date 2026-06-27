@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { uploadGeneratedImageFromUrl } from "@/lib/supabase/storage";
+import { uploadGeneratedImageFromUrl, removeByPublicUrl } from "@/lib/supabase/storage";
+import { STORAGE_BUCKETS } from "@/lib/constants";
 import { generateFashionModel } from "@/lib/fashn";
 import type {
   ApiError,
@@ -11,7 +12,7 @@ import type {
   Generation,
 } from "@/types";
 
-// sharp + Buffer + the service-role admin client all require the Node runtime.
+// Buffer + the service-role admin client require the Node runtime.
 export const runtime = "nodejs";
 // Image generation can take ~40s; give the function generous headroom.
 export const maxDuration = 120;
@@ -111,16 +112,24 @@ export async function POST(req: NextRequest) {
       { status: 200 },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[api/generate] generation failed:", err);
-    // Best-effort: mark the row failed with the technical detail (server-side only).
+    // Clean up so failed attempts never linger on the dashboard or in storage.
     try {
-      await db
-        .from("generations")
-        .update({ status: "failed", error_message: message } satisfies Partial<Generation>)
-        .eq("id", generationId);
-    } catch (markErr) {
-      console.error("[api/generate] failed to mark row failed:", markErr);
+      if (row.generated_image_url) {
+        // This row already had a successful image (a failed *re*generate) — keep
+        // it. Restore the completed status; don't destroy the prior result.
+        await db
+          .from("generations")
+          .update({ status: "completed", error_message: null } satisfies Partial<Generation>)
+          .eq("id", generationId);
+      } else {
+        // First-time failure: delete the orphaned sari upload and the row so no
+        // junk image or failed shoot is stored.
+        await removeByPublicUrl(admin, STORAGE_BUCKETS.sari, sariImageUrl);
+        await db.from("generations").delete().eq("id", generationId);
+      }
+    } catch (cleanupErr) {
+      console.error("[api/generate] failure cleanup error:", cleanupErr);
     }
     return NextResponse.json<ApiError>(
       { error: "Image generation failed. Please try again." },

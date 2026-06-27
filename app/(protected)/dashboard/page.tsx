@@ -20,10 +20,13 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const supabase = await createClient();
+  // Only show finished shoots — failed/in-flight attempts are hidden (and failed
+  // ones are cleaned up server-side), so the gallery stays clean.
   const { data } = await supabase
     .from("generations")
     .select("*")
     .eq("user_id", user.id)
+    .eq("status", "completed")
     .order("created_at", { ascending: false });
 
   const generations: Generation[] = data ?? [];

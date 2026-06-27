@@ -115,7 +115,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
   );
 
   async function startUploadAndGenerate() {
-    if (!file || uploading || !prompt.trim()) return;
+    if (!file || uploading) return;
     setUploading(true);
     setGenError(null);
     try {
@@ -382,7 +382,7 @@ export function GenerateWizard({ userId }: { userId: string }) {
                     <p className="mt-1.5 text-sm text-muted">{genError}</p>
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button variant="primary" onClick={regenerate}>
+                    <Button variant="primary" onClick={startUploadAndGenerate} loading={uploading}>
                       <RefreshCw className="size-4" aria-hidden />
                       Try again
                     </Button>

@@ -11,6 +11,24 @@ export function publicUrl(supabase: DB, bucket: string, path: string): string {
 }
 
 /**
+ * Delete a storage object given its public URL (best-effort). Used to clean up
+ * orphaned uploads from failed generations so they don't eat storage. The path
+ * is everything after `/object/public/{bucket}/`.
+ */
+export async function removeByPublicUrl(
+  supabase: DB,
+  bucket: string,
+  url: string,
+): Promise<void> {
+  const marker = `/object/public/${bucket}/`;
+  const idx = url.indexOf(marker);
+  if (idx === -1) return;
+  const path = decodeURIComponent(url.slice(idx + marker.length).split("?")[0]);
+  if (!path) return;
+  await supabase.storage.from(bucket).remove([path]);
+}
+
+/**
  * Upload a user-selected sari File (browser, anon client) and return its
  * public URL. Path: sari-uploads/{userId}/{uuid}.{ext}
  */
