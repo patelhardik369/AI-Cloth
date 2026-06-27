@@ -79,13 +79,6 @@ const INCLUDED: string[] = [
   "No subscription and no daily cap — pay only per image",
 ];
 
-// Per-image AI generation cost by quality mode (native 4K). INR at ₹86 = $1.
-const MODE_PRICING = [
-  { mode: "Fast", inr: "₹19", usd: "$0.225", note: "drafts & bulk catalogue", featured: false },
-  { mode: "Balanced", inr: "₹26", usd: "$0.30", note: "everyday catalogue", featured: false },
-  { mode: "Quality", inr: "₹32", usd: "$0.375", note: "hero & poster prints", featured: true },
-];
-
 export default function LandingPage() {
   return (
     <>
@@ -333,8 +326,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="mx-auto mt-12 grid max-w-4xl gap-6 lg:grid-cols-[minmax(0,21rem)_1fr] lg:items-stretch">
-              {/* Headline price card */}
+            <div className="mx-auto mt-12 max-w-md">
               <div className="flex flex-col rounded-2xl border border-accent/40 bg-surface p-7 shadow-lift">
                 <span className="kicker">From</span>
                 <div className="mt-3 flex items-baseline gap-2">
@@ -342,9 +334,9 @@ export default function LandingPage() {
                   <span className="text-sm text-muted">/ 4K image</span>
                 </div>
                 <p className="mt-1.5 text-sm text-muted">
-                  ≈ $0.375 · Quality mode · one image = one finished shoot
+                  ≈ $0.375 · one image = one finished, poster-ready shoot
                 </p>
-                <ul className="mt-6 flex flex-1 flex-col gap-3">
+                <ul className="mt-6 flex flex-col gap-3">
                   {INCLUDED.map((p) => (
                     <li key={p} className="flex items-start gap-2.5 text-sm text-foreground">
                       <Check className="mt-0.5 size-4 shrink-0 text-accent-strong" aria-hidden />
@@ -360,46 +352,10 @@ export default function LandingPage() {
                   <ArrowRight className="size-4" aria-hidden />
                 </Link>
               </div>
-
-              {/* Cost by quality mode */}
-              <div className="flex flex-col rounded-2xl border border-border bg-surface-2 p-7">
-                <h3 className="font-display text-xl font-semibold tracking-tight">
-                  What an image costs, by quality
-                </h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                  Every mode renders native 4K and keeps your exact garment. We use{" "}
-                  <span className="text-foreground">Quality</span> by default for poster-grade hands
-                  and fine print; lower modes cut cost for high-volume catalogue work.
-                </p>
-
-                <div className="mt-6 divide-y divide-border">
-                  {MODE_PRICING.map((m) => (
-                    <div key={m.mode} className="flex items-center justify-between gap-4 py-4">
-                      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="font-medium text-foreground">{m.mode}</span>
-                        {m.featured && (
-                          <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-accent-strong">
-                            Default
-                          </span>
-                        )}
-                        <span className="hidden text-xs text-muted sm:inline">· {m.note}</span>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <span className="font-display text-lg tabular-nums text-foreground">
-                          {m.inr}
-                        </span>
-                        <span className="ml-1.5 text-xs tabular-nums text-muted">{m.usd}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="mt-6 text-xs leading-relaxed text-muted">
-                  Figures are the per-image AI generation cost (FASHN engine), shown at ₹86 = $1.
-                  Buying credits in bulk lowers them 10–35%. The prompt and your uploaded photo add
-                  under ₹1 per image. Resizing and downloads are free.
-                </p>
-              </div>
+              <p className="mx-auto mt-5 max-w-md text-center text-xs leading-relaxed text-muted">
+                Price is the per-image AI generation cost, shown at ₹86 = $1. The prompt and your
+                uploaded photo add under ₹1 per image. Resizing and downloads are free.
+              </p>
             </div>
           </div>
         </section>
